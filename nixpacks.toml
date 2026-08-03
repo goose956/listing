@@ -1,0 +1,4 @@
+# Force a modern Node version for Railway's Nixpacks build.
+# The stack (Vite 8, Tailwind 4, Supabase JS) requires Node >= 22.
+[phases.setup]
+nixPkgs = ["nodejs_22", "npm-9_x"]
