@@ -117,3 +117,26 @@ npm start
 - eBay API integration
 - Email / push notifications for queue reminders
 - Code splitting to reduce bundle size (~527 kB JS)
+
+---
+
+## Session 2 — Settings Page, GitHub Push & Railway
+
+### 9. Settings page (manage API keys in-app)
+- **Files:** `supabase/migrations/004_user_settings.sql`, `server/src/lib/supabaseAdmin.ts`, `server/src/routes/ai.ts`, `client/src/lib/settings.ts`, `client/src/pages/SettingsPage.tsx`, `client/src/App.tsx`, `client/src/components/Layout.tsx`
+- Added a `user_settings` table (RLS-protected, safe view that never exposes the API key).
+- Added a **Settings page** in the app where you can add/remove your **OpenAI API key** and set a **Vinted username**.
+- The server reads your stored key via the Supabase service role (in `server/.env`) and uses it for AI analysis/listing — with a fallback to a global `OPENAI_API_KEY`.
+- Added a **Settings** item to the nav (mobile bottom bar + desktop sidebar).
+- Added `server/src/lib/supabaseAdmin.ts` for server-only service-role access.
+
+### 10. GitHub + Railway deployment
+- **Pushed to GitHub:** https://github.com/goose956/listing (branch `main`).
+- **Added `railway.json`** — Railway config: builds the client + server, serves both from a single service, health check at `/api/health`.
+- Verified `.env` files (with secrets) are **excluded** from the repo via `.gitignore`.
+- Cleaned up unused Vite template files (`App.css`, `assets/`).
+
+### Remaining to do
+- Run `004_user_settings.sql` in Supabase SQL Editor (creates the settings table).
+- Add an OpenAI API key in the app's Settings page (~2 min) to enable AI photo analysis.
+- Optional: deploy to Railway (repo is ready).
