@@ -1,0 +1,304 @@
+# Build Prompt: Vinted-First AI Resale Inventory Assistant
+
+I want to build a full-stack web application for managing a large second-hand resale operation, starting with Vinted as the primary marketplace.
+
+The app must be designed for a real workflow where items are purchased from boot sales, photographed, processed, listed, stored, sold, and tracked.
+
+The first version should NOT attempt to automatically post listings to Vinted. Vinted has no official public API, so the first version should provide a semi-automated workflow where the user prepares listings and receives reminders to manually complete the final Vinted posting steps.
+
+## Main Goal
+
+Create a mobile-friendly web application that works on:
+
+* Mobile phones for adding new inventory at boot sales
+* Desktop/laptop computers for processing, managing and listing inventory
+
+Use one responsive application, not separate mobile and desktop apps.
+
+## Preferred Technology Stack
+
+Use:
+
+Frontend:
+
+* React
+* TypeScript
+* Responsive design suitable for mobile and desktop
+
+Backend:
+
+* Node.js / Express OR Supabase backend functions where appropriate
+
+Database:
+
+* Supabase PostgreSQL
+
+Authentication:
+
+* Supabase Auth
+
+Storage:
+
+* Supabase Storage for product images
+
+Hosting:
+
+* Railway preferred for backend services if needed
+
+Code:
+
+* Store in GitHub with clean structure and documentation
+
+## Core Feature 1: Inventory Management
+
+Every item must have a unique ID.
+
+Example:
+
+V-000001
+V-000002
+V-000003
+
+When creating a new item:
+
+Capture:
+
+* Item ID
+* Date added
+* Photos
+* Category
+* Brand
+* Product type
+* Size
+* Colour
+* Condition
+* Purchase price
+* Suggested selling price
+* Storage location
+* Status
+
+Statuses:
+
+* New
+* Ready for listing
+* Listed
+* Sold
+* Archived
+
+## Core Feature 2: Mobile Item Capture
+
+Create a mobile-friendly item creation screen.
+
+Workflow:
+
+1. User presses "Add New Item"
+2. Takes product photos using phone camera
+3. Images upload to Supabase Storage
+4. System creates unique item number
+5. AI analyses images
+6. AI suggests product details
+
+The AI should attempt to identify:
+
+* Brand
+* Item type
+* Category
+* Colour
+* Size if visible
+* Condition
+* Estimated resale price
+
+All AI suggestions must be editable by the user.
+
+## Core Feature 3: AI Listing Assistant
+
+Create a Vinted listing assistant.
+
+Given:
+
+* Product photos
+* AI analysis
+* User edits
+
+Generate:
+
+Vinted title:
+
+* Short
+* Search friendly
+* Maximum useful keywords
+
+Vinted description:
+
+* Natural second-hand seller style
+* Honest condition description
+* Include measurements where available
+
+Suggested price:
+
+* Based on item type, brand and condition
+
+Suggested tags:
+
+* Search terms buyers may use
+
+Example output:
+
+Title:
+"Barbour Men's Wax Jacket Olive Green Size Medium"
+
+Description:
+"Classic Barbour wax jacket in good used condition. Some signs of wear consistent with age. Great quality heritage jacket."
+
+Price:
+"List £45, accept offers above £35"
+
+## Core Feature 4: Vinted Listing Queue
+
+Create a listing queue.
+
+The user should be able to schedule when items should be listed.
+
+Example:
+
+Monday:
+10:00 Item V-00001
+14:00 Item V-00002
+18:00 Item V-00003
+
+The system should:
+
+* Show next items ready to list
+* Send reminders
+* Allow copying title
+* Allow copying description
+* Open Vinted manually
+
+Do not automate Vinted login or posting.
+
+## Core Feature 5: Image Enhancement
+
+Add an image processing workflow.
+
+The system should improve:
+
+* Lighting
+* Brightness
+* Contrast
+* Background cleanliness
+* Product visibility
+
+Important:
+
+Images must remain truthful.
+
+Do NOT:
+
+* Change item colour
+* Remove damage
+* Remove stains
+* Create fake products
+* Make used items appear new
+
+The purpose is ecommerce presentation, not image manipulation.
+
+## Core Feature 6: Storage Management
+
+Because inventory may grow into thousands of items, storage tracking is essential.
+
+Allow:
+
+Container
+Shelf
+Box
+Location notes
+
+Example:
+
+Item:
+V-0001542
+
+Location:
+Container 2
+Box 14
+
+Add barcode/QR code support later.
+
+## Core Feature 7: Sales Tracking
+
+Prepare the system for marketplace sales.
+
+First version:
+
+Manual status updates.
+
+Future versions:
+
+Possible integrations:
+
+* eBay API
+* Email monitoring
+* Marketplace integrations
+
+When an item sells:
+
+Update:
+
+* Sold date
+* Sale price
+* Profit
+
+Calculate:
+
+Sale price - purchase cost = profit
+
+## Dashboard
+
+Create a desktop dashboard showing:
+
+Total items
+Items ready to list
+Items listed
+Items sold
+Total profit
+Average sale price
+
+Include search:
+
+Examples:
+
+"Find Nike trainers"
+
+"Show items in Container 3"
+
+"Items not listed"
+
+## Development Approach
+
+Build this in phases.
+
+Phase 1:
+
+* Authentication
+* Database
+* Add items
+* Upload photos
+* Inventory dashboard
+
+Phase 2:
+
+* AI image analysis
+* AI listing generation
+* Vinted listing queue
+
+Phase 3:
+
+* QR codes
+* Profit tracking
+* eBay integration
+
+Focus on building a reliable foundation.
+
+Avoid unnecessary complexity.
+
+The priority is creating a tool that can realistically manage thousands of second-hand items over time.

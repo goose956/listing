@@ -1,0 +1,16 @@
+{
+  "name": "listings-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vinted-first AI resale inventory assistant",
+  "scripts": {
+    "dev": "concurrently -n client,server -c teal,magenta \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "build": "npm run build --prefix client && npm run build --prefix server",
+    "start": "npm run start --prefix server"
+  },
+  "keywords": ["vinted", "resale", "inventory"],
+  "author": "",
+  "license": "MIT"
+}
