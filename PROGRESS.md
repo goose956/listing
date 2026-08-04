@@ -136,7 +136,14 @@ npm start
 - Verified `.env` files (with secrets) are **excluded** from the repo via `.gitignore`.
 - Cleaned up unused Vite template files (`App.css`, `assets/`).
 
+### 11. Railway deployment — LIVE ✅
+- Fixed Railway build (install client+server deps incl. dev, pin Node 22 via `nixpacks.toml` + `engines`).
+- Fixed runtime port issue (removed custom `PORT` variable — Railway injects its own).
+- Fixed SPA fallback (middleware-based `app.use` instead of `app.get('/*splat')`) so client-side routes like `/login` serve the React app.
+- Added `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` to Railway for the frontend.
+- **App is live on Railway** — full stack (frontend + API) from a single service.
+
 ### Remaining to do
-- Run `004_user_settings.sql` in Supabase SQL Editor (creates the settings table).
+- Run `004_user_settings.sql` in Supabase SQL Editor (creates the settings table) — needed for the Settings page.
 - Add an OpenAI API key in the app's Settings page (~2 min) to enable AI photo analysis.
-- Optional: deploy to Railway (repo is ready).
+- The app is at a fully usable state: inventory, queue, storage, sales tracking all working on Railway.
