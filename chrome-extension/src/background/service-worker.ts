@@ -1,5 +1,5 @@
 import { getValidToken } from '../shared/auth';
-import { fetchQueue } from '../shared/api';
+import { fetchQueue, completeQueueItem } from '../shared/api';
 
 const ALARM_NAME = 'la-badge-refresh';
 
@@ -15,6 +15,16 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) updateBadge();
+});
+
+// Content scripts can't call the API directly (CORS), so they delegate here
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'COMPLETE_QUEUE_ITEM') {
+    handleComplete(message.queueId as string)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: String(err) }));
+    return true;
+  }
 });
 
 // ── Badge update ──────────────────────────────────────────────
@@ -38,4 +48,13 @@ async function updateBadge() {
   } catch {
     chrome.action.setBadgeText({ text: '' });
   }
+}
+
+// ── Mark as listed ────────────────────────────────────────────
+async function handleComplete(queueId: string) {
+  const token = await getValidToken();
+  if (!token) throw new Error('Not authenticated');
+  await completeQueueItem(queueId, token);
+  // Refresh badge immediately after marking listed
+  updateBadge();
 }
