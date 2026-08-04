@@ -6,8 +6,9 @@
 ALTER TABLE user_settings
   ADD COLUMN IF NOT EXISTS email_address TEXT;
 
--- Update the safe view to expose the email address (it's not secret)
-CREATE OR REPLACE VIEW user_settings_safe AS
+-- Drop and recreate: CREATE OR REPLACE can't insert columns mid-list
+DROP VIEW IF EXISTS user_settings_safe;
+CREATE VIEW user_settings_safe AS
 SELECT
   user_id,
   openai_model,

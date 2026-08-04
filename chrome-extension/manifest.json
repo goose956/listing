@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "Listings Assistant for Vinted",
+  "version": "1.0.0",
+  "description": "Fill your Vinted listing form from your Listings Assistant queue",
+  "permissions": ["storage", "alarms", "activeTab", "tabs"],
+  "host_permissions": [
+    "https://www.vinted.co.uk/*",
+    "https://www.vinted.com/*",
+    "https://www.vinted.fr/*",
+    "https://www.vinted.de/*",
+    "https://www.vinted.ie/*",
+    "https://www.vinted.be/*",
+    "https://www.vinted.nl/*",
+    "https://www.vinted.es/*",
+    "https://www.vinted.pt/*",
+    "https://www.vinted.pl/*",
+    "https://*.railway.app/*",
+    "http://localhost:3001/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Listings Assistant"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.vinted.co.uk/items/new*",
+        "https://www.vinted.com/items/new*",
+        "https://www.vinted.fr/items/new*",
+        "https://www.vinted.de/items/new*",
+        "https://www.vinted.ie/items/new*"
+      ],
+      "js": ["src/content/content.ts"],
+      "css": ["src/content/sidebar.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

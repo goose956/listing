@@ -8,12 +8,21 @@ import { aiRouter } from './routes/ai.js';
 import { imagesRouter } from './routes/images.js';
 import { healthRouter } from './routes/health.js';
 import { emailRouter } from './routes/email.js';
+import { extensionRouter } from './routes/extension.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const explicitOrigins = process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:5173', 'http://localhost:4173'];
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:4173'],
+  origin: (origin, callback) => {
+    // Allow same-origin, configured origins, and the Chrome extension
+    if (!origin || explicitOrigins.includes(origin) || origin.startsWith('chrome-extension://')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
@@ -24,6 +33,7 @@ app.use('/api/health', healthRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/email', emailRouter);
+app.use('/api/extension', extensionRouter);
 
 // ---- Serve built client (single-dyno deploy) ----
 // If client/dist exists, serve it as static files and fall back to index.html
