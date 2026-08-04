@@ -34,6 +34,8 @@ export function AddItemPage() {
   const navigate = useNavigate();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  // Track which input was used so we can re-prompt after a single capture
+  const lastInputRef = useRef<'camera' | 'gallery' | null>(null);
 
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const [form, setForm] = useState<ItemFormData>({ ...EMPTY_ITEM_FORM });
@@ -59,7 +61,28 @@ export function AddItemPage() {
       file,
       preview: URL.createObjectURL(file),
     }));
-    setPhotos((p) => [...p, ...next].slice(0, 10));
+
+    setPhotos((p) => {
+      const updated = [...p, ...next].slice(0, 10);
+      return updated;
+    });
+
+    // If only one photo was added (typical for camera capture on mobile),
+    // ask whether the user wants to add another image.
+    if (next.length === 1 && lastInputRef.current) {
+      // Use a short timeout to let the state update before the confirm dialog
+      setTimeout(() => {
+        if (
+          window.confirm(
+            'Do you want to add another image?\n\nYou can add up to 10 photos per item.'
+          )
+        ) {
+          lastInputRef.current === 'camera'
+            ? cameraRef.current?.click()
+            : galleryRef.current?.click();
+        }
+      }, 100);
+    }
   }
 
   function removePhoto(id: string) {
@@ -277,7 +300,10 @@ export function AddItemPage() {
             <>
               <button
                 type="button"
-                onClick={() => cameraRef.current?.click()}
+                onClick={() => {
+                  lastInputRef.current = 'camera';
+                  cameraRef.current?.click();
+                }}
                 className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-teal-300 bg-teal-50/50 text-teal-700 transition hover:bg-teal-50"
               >
                 <Camera size={22} />
@@ -285,7 +311,10 @@ export function AddItemPage() {
               </button>
               <button
                 type="button"
-                onClick={() => galleryRef.current?.click()}
+                onClick={() => {
+                  lastInputRef.current = 'gallery';
+                  galleryRef.current?.click();
+                }}
                 className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-500 transition hover:bg-slate-100"
               >
                 <ImagePlus size={22} />
@@ -312,6 +341,16 @@ export function AddItemPage() {
           className="hidden"
           onChange={onFilesSelected}
         />
+
+        {/* Helpful hint when photos exist but more can be added */}
+        {photos.length > 0 && photos.length < 10 && (
+          <div className="mt-3 rounded-xl bg-slate-50 p-3 text-center">
+            <p className="text-xs text-slate-500">
+              You have <strong>{photos.length}</strong> photo
+              {photos.length === 1 ? '' : 's'} added. Tap Camera or Gallery to add more.
+            </p>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
