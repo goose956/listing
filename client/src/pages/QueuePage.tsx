@@ -27,6 +27,7 @@ import {
   PageHeader,
   Spinner,
 } from '../components/ui';
+import { ImageViewer } from '../components/ImageViewer';
 import { format, isToday, isTomorrow, parseISO, startOfDay } from 'date-fns';
 
 export function QueuePage() {
@@ -217,10 +218,11 @@ export function QueuePage() {
                       <div className="flex gap-3">
                         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
                           {item?.primary_image_url && (
-                            <img
+                            <ImageViewer
                               src={item.primary_image_url}
                               alt=""
-                              className="h-full w-full object-cover"
+                              imgClassName="h-full w-full object-cover"
+                              showZoomHint
                             />
                           )}
                         </div>

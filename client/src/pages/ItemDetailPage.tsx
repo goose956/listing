@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -48,6 +49,7 @@ import {
   Textarea,
   statusTone,
 } from '../components/ui';
+import { ImageViewer } from '../components/ImageViewer';
 
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -293,11 +295,13 @@ export function ItemDetailPage() {
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {item.item_images?.length ? (
           item.item_images.map((img) => (
-            <img
+            <ImageViewer
               key={img.id}
               src={img.public_url}
               alt=""
-              className="h-36 w-36 shrink-0 rounded-xl object-cover ring-1 ring-slate-200 sm:h-44 sm:w-44"
+              showZoomHint
+              className="shrink-0 rounded-xl ring-1 ring-slate-200"
+              imgClassName="h-36 w-36 object-cover sm:h-44 sm:w-44 rounded-xl"
             />
           ))
         ) : (

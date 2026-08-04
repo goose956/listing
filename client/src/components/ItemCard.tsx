@@ -1,23 +1,30 @@
 import { Link } from 'react-router-dom';
-import { MapPin, ImageIcon } from 'lucide-react';
+import { MapPin, ImageIcon, Trash2 } from 'lucide-react';
 import type { Item } from '../types';
 import { STATUS_LABELS } from '../types';
 import { formatMoney, storageLabel } from '../lib/format';
-import { Badge, statusTone } from './ui';
+import { Badge, cn, statusTone } from './ui';
+import { ImageViewer } from './ImageViewer';
 
-export function ItemCard({ item }: { item: Item }) {
+export function ItemCard({
+  item,
+  onDelete,
+}: {
+  item: Item;
+  onDelete?: () => void;
+}) {
   return (
     <Link
       to={`/items/${item.id}`}
-      className="group flex gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm transition hover:border-teal-200 hover:shadow-md sm:p-3.5"
+      className="group relative flex gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm transition hover:border-teal-200 hover:shadow-md sm:p-3.5"
     >
       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:h-24 sm:w-24">
         {item.primary_image_url ? (
-          <img
+          <ImageViewer
             src={item.primary_image_url}
             alt=""
-            className="h-full w-full object-cover transition group-hover:scale-105"
-            loading="lazy"
+            imgClassName="h-full w-full object-cover transition group-hover:scale-105"
+            showZoomHint
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-slate-300">
@@ -38,6 +45,24 @@ export function ItemCard({ item }: { item: Item }) {
           </div>
           <Badge tone={statusTone(item.status)}>{STATUS_LABELS[item.status]}</Badge>
         </div>
+
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete();
+            }}
+            className={cn(
+              'absolute right-3 top-3 z-10 rounded-lg p-1.5 text-slate-400 transition',
+              'hover:bg-rose-50 hover:text-rose-600'
+            )}
+            aria-label={`Delete ${item.item_number}`}
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
 
         <p className="mt-1 truncate text-xs text-slate-500">
           {[item.brand, item.size, item.colour, item.category].filter(Boolean).join(' · ') ||

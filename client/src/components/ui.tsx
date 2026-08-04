@@ -1,9 +1,13 @@
 import clsx from 'clsx';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
 export function cn(...parts: Array<string | false | null | undefined>) {
   return clsx(parts);
 }
+
+export { ImageViewer } from './ImageViewer';
 
 export function PageHeader({
   title,
@@ -269,5 +273,58 @@ export function StatCard({
         )}
       </div>
     </Card>
+  );
+}
+
+/**
+ * A simple modal/lightbox that renders its content via a portal to document.body.
+ * The backdrop closes on click; content does not.
+ */
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  wide = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className={cn(
+          'relative w-[95vw] max-w-lg rounded-2xl bg-white p-5 shadow-xl',
+          wide && 'max-w-3xl'
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {title && (
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {children}
+      </div>
+    </div>,
+    document.body
   );
 }

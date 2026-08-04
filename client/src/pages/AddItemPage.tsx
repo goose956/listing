@@ -8,7 +8,6 @@ import {
   CATEGORIES,
   CONDITION_LABELS,
   EMPTY_ITEM_FORM,
-  type AiAnalysis,
   type ItemCondition,
   type ItemFormData,
 } from '../types';
@@ -103,6 +102,8 @@ export function AddItemPage() {
   /**
    * Upload photos to a draft item, run AI analysis, then fill the form
    * in place so the user can review/edit every suggestion before saving.
+   * The AI suggestions are ALSO saved to the draft immediately so the
+   * data is never lost, even if the user navigates away.
    */
   async function handleAnalyse() {
     if (!user || !photos.length) return;
@@ -131,13 +132,33 @@ export function AddItemPage() {
       const purchase = form.purchase_price ? Number(form.purchase_price) : undefined;
       const { analysis } = await analyseImages(urls, purchase);
 
-      // Fill the form with AI suggestions (all editable before saving).
-      applyAnalysis(analysis);
+      // Build a form carrying all AI suggestions (without losing purchase price).
+      const aiForm: Partial<ItemFormData> = {
+        purchase_price: form.purchase_price,
+        brand: analysis.brand || '',
+        product_type: analysis.product_type || '',
+        category: analysis.category || '',
+        colour: analysis.colour || '',
+        size: analysis.size || '',
+        condition: (analysis.condition as ItemCondition) || '',
+        suggested_price:
+          analysis.suggested_price != null ? String(analysis.suggested_price) : '',
+        accept_offers_above:
+          analysis.accept_offers_above != null ? String(analysis.accept_offers_above) : '',
+        tags: analysis.tags?.join(', ') || '',
+        notes: [analysis.condition_notes, analysis.notes].filter(Boolean).join('\n'),
+        measurements: analysis.measurements_visible || '',
+        status: 'new',
+      };
 
-      // Save the analysis onto the draft and move to the details step.
-      await updateItem(draft.id, EMPTY_ITEM_FORM, {
+      // Save the AI suggestions onto the draft item (NOT an empty form).
+      await updateItem(draft.id, aiForm, {
         ai_analysis: analysis as unknown as Record<string, unknown>,
       });
+
+      // Fill the on-screen form with the same AI suggestions for editing.
+      setForm({ ...EMPTY_ITEM_FORM, ...aiForm });
+      setDraftId(draft.id);
       setStep('details');
       setAiNotes(
         `AI suggestions ready (${Math.round((analysis.confidence ?? 0) * 100)}% confidence). ` +
@@ -150,25 +171,6 @@ export function AddItemPage() {
     } finally {
       setAnalysing(false);
     }
-  }
-
-  function applyAnalysis(a: AiAnalysis) {
-    setForm((f) => ({
-      ...f,
-      brand: a.brand || f.brand,
-      product_type: a.product_type || f.product_type,
-      category: a.category || f.category,
-      colour: a.colour || f.colour,
-      size: a.size || f.size,
-      condition: (a.condition as ItemCondition) || f.condition,
-      suggested_price:
-        a.suggested_price != null ? String(a.suggested_price) : f.suggested_price,
-      accept_offers_above:
-        a.accept_offers_above != null ? String(a.accept_offers_above) : f.accept_offers_above,
-      tags: a.tags?.join(', ') || f.tags,
-      notes: [f.notes, a.condition_notes, a.notes].filter(Boolean).join('\n'),
-      measurements: a.measurements_visible || f.measurements,
-    }));
   }
 
   /** Reset the page back to the photo step, cleaning up any draft item. */
@@ -199,14 +201,22 @@ export function AddItemPage() {
     setSaving(true);
     setError(null);
     try {
-      const item = await createItem(user.id, form);
-      for (let i = 0; i < photos.length; i++) {
-        await uploadItemImage(user.id, item.id, photos[i].file, {
-          isPrimary: i === 0,
-          sortOrder: i,
-          isEnhanced: photos[i].enhanced,
-        });
+      let item;
+      if (draftId) {
+        // Draft already exists (AI analysis ran) — update it, don't duplicate.
+        item = await updateItem(draftId, form);
+      } else {
+        // No draft — create a new item and upload its photos.
+        item = await createItem(user.id, form);
+        for (let i = 0; i < photos.length; i++) {
+          await uploadItemImage(user.id, item.id, photos[i].file, {
+            isPrimary: i === 0,
+            sortOrder: i,
+            isEnhanced: photos[i].enhanced,
+          });
+        }
       }
+      setDraftId(null);
       navigate(`/items/${item.id}?fresh=1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save item');

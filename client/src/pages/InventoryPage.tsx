@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
-import { fetchItems } from '../lib/items';
+import { deleteItem, fetchItems } from '../lib/items';
 import type { Item, ItemStatus } from '../types';
 import { STATUS_LABELS } from '../types';
 import {
@@ -76,6 +76,16 @@ export function InventoryPage() {
     if (status === 'all') return `${items.length} items`;
     return `${items.length} ${STATUS_LABELS[status].toLowerCase()}`;
   }, [items.length, status]);
+
+  async function handleDelete(itemId: string, itemNumber: string) {
+    if (!confirm(`Remove ${itemNumber} from inventory? This cannot be undone.`)) return;
+    try {
+      await deleteItem(itemId);
+      setItems((prev) => prev.filter((i) => i.id !== itemId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    }
+  }
 
   return (
     <div>
@@ -152,7 +162,11 @@ export function InventoryPage() {
       ) : (
         <div className="space-y-2.5">
           {items.map((item) => (
-            <ItemCard key={item.id} item={item} />
+            <ItemCard
+              key={item.id}
+              item={item}
+              onDelete={() => handleDelete(item.id, item.item_number)}
+            />
           ))}
         </div>
       )}
