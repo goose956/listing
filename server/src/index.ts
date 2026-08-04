@@ -13,10 +13,12 @@ import { extensionRouter } from './routes/extension.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const explicitOrigins = process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:5173', 'http://localhost:4173'];
+const explicitOrigins = process.env.CORS_ORIGIN?.split(',');
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow same-origin, configured origins, and the Chrome extension
+    // If CORS_ORIGIN is not set, allow all origins (single-dyno: frontend + API on same domain)
+    if (!explicitOrigins) return callback(null, true);
+    // Otherwise restrict to configured origins plus the Chrome extension
     if (!origin || explicitOrigins.includes(origin) || origin.startsWith('chrome-extension://')) {
       callback(null, true);
     } else {
