@@ -2,6 +2,7 @@ import { Router } from 'express';
 import OpenAI from 'openai';
 import { analyzeItemPrompt, listingGenerationPrompt } from '../services/prompts.js';
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin.js';
+import { createImageCollage } from '../lib/imageCollage.js';
 
 export const aiRouter = Router();
 
@@ -69,16 +70,18 @@ aiRouter.post('/analyse', async (req, res) => {
       });
     }
 
-    // Limit to 4 images for cost/latency
+    // Combine all images into a single collage to reduce API token usage
     const urls = imageUrls.slice(0, 4);
     const openai = getOpenAI(apiKey);
 
+    const collageUri = await createImageCollage(urls, { thumbSize: 512 });
+
     const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
       { type: 'text', text: analyzeItemPrompt(purchasePrice) },
-      ...urls.map((url) => ({
+      {
         type: 'image_url' as const,
-        image_url: { url, detail: 'low' as const },
-      })),
+        image_url: { url: collageUri, detail: 'low' as const },
+      },
     ];
 
     const response = await openai.chat.completions.create({
@@ -141,12 +144,12 @@ aiRouter.post('/listing', async (req, res) => {
     ];
 
     if (item.imageUrls?.length) {
-      for (const url of item.imageUrls.slice(0, 2)) {
-        content.push({
-          type: 'image_url',
-          image_url: { url, detail: 'low' },
-        });
-      }
+      // Combine all provided images into one collage for the vision model
+      const collageUri = await createImageCollage(item.imageUrls, { thumbSize: 512 });
+      content.push({
+        type: 'image_url' as const,
+        image_url: { url: collageUri, detail: 'low' as const },
+      });
     }
 
     const response = await openai.chat.completions.create({
