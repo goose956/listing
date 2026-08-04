@@ -4,6 +4,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Mail,
   SkipForward,
   X,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ import {
   fetchQueue,
   skipQueueEntry,
 } from '../lib/items';
+import { sendListingsEmail } from '../lib/api';
 import type { ListingQueueEntry } from '../types';
 import { copyToClipboard, formatDateTime, formatMoney, formatRelative } from '../lib/format';
 import {
@@ -33,6 +35,7 @@ export function QueuePage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [emailingAll, setEmailingAll] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -112,6 +115,36 @@ export function QueuePage() {
     }
   }
 
+  async function handleEmailAll() {
+    const ready = queue.filter((e) => e.items?.title && e.items?.description);
+    if (!ready.length) {
+      flash('No listings with title + description yet');
+      return;
+    }
+    setEmailingAll(true);
+    setError(null);
+    try {
+      await sendListingsEmail(
+        ready.map((e) => ({
+          item_number: e.items?.item_number,
+          title: e.items?.title || undefined,
+          description: e.items?.description || undefined,
+          list_price: e.items?.list_price ?? e.items?.suggested_price ?? null,
+          size: e.items?.size || null,
+          colour: e.items?.colour || null,
+          brand: e.items?.brand || null,
+          tags: e.items?.tags || null,
+          image_urls: e.items?.item_images?.map((i) => i.public_url) || [],
+        }))
+      );
+      flash(`Emailed ${ready.length} listing${ready.length > 1 ? 's' : ''}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Email failed');
+    } finally {
+      setEmailingAll(false);
+    }
+  }
+
   if (loading) return <LoadingScreen label="Loading queue…" />;
 
   return (
@@ -119,6 +152,19 @@ export function QueuePage() {
       <PageHeader
         title="Listing queue"
         subtitle="Prepare listings, copy content, post manually on Vinted"
+        actions={
+          queue.length > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={emailingAll}
+              onClick={handleEmailAll}
+            >
+              {emailingAll ? <Spinner /> : <Mail size={16} />}
+              Email all ready
+            </Button>
+          ) : undefined
+        }
       />
 
       {toast && (

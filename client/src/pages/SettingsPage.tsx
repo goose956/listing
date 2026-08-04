@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, KeyRound, Save, Trash2 } from 'lucide-react';
+import { Check, KeyRound, Mail, Save, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { checkApiHealth } from '../lib/api';
 import { clearOpenAIKey, fetchSettings, saveSettings, type UserSettingsSafe } from '../lib/settings';
@@ -23,6 +23,7 @@ export function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4o-mini');
   const [vintedUsername, setVintedUsername] = useState('');
+  const [emailAddress, setEmailAddress] = useState('');
   const [apiHealth, setApiHealth] = useState<{ status: string; aiConfigured: boolean } | null>(null);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ export function SettingsPage() {
         setSettings(s);
         setModel(s?.openai_model || 'gpt-4o-mini');
         setVintedUsername(s?.vinted_username || '');
+        setEmailAddress(s?.email_address || '');
         setApiHealth(health);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load settings');
@@ -64,6 +66,7 @@ export function SettingsPage() {
         openaiApiKey: apiKey.trim() || undefined,
         openaiModel: model,
         vintedUsername,
+        emailAddress,
       });
       setSettings(await fetchSettings());
       setApiKey('');
@@ -178,6 +181,38 @@ export function SettingsPage() {
               </Button>
             )}
           </div>
+        </div>
+      </Card>
+
+      {/* Email preferences */}
+      <Card className="mb-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Mail size={16} className="text-teal-600" />
+            Email listings
+          </h2>
+          {settings?.email_address && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+              Set ✓
+            </span>
+          )}
+        </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Send your prepared listings to this email address so you can copy-paste them into Vinted
+          on any device. Use the "Email" button on an item or the queue.
+        </p>
+        <Input
+          label="Email address"
+          type="email"
+          value={emailAddress}
+          onChange={(e) => setEmailAddress(e.target.value)}
+          placeholder="you@example.com"
+        />
+        <div className="mt-3">
+          <Button type="button" variant="secondary" disabled={saving || !emailAddress} onClick={handleSave}>
+            <Save size={16} />
+            Save
+          </Button>
         </div>
       </Card>
 

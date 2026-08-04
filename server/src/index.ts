@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { aiRouter } from './routes/ai.js';
 import { imagesRouter } from './routes/images.js';
 import { healthRouter } from './routes/health.js';
+import { emailRouter } from './routes/email.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,6 +23,7 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use('/api/health', healthRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/images', imagesRouter);
+app.use('/api/email', emailRouter);
 
 // ---- Serve built client (single-dyno deploy) ----
 // If client/dist exists, serve it as static files and fall back to index.html

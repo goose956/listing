@@ -4,6 +4,7 @@ export interface UserSettingsSafe {
   user_id: string;
   openai_model: string | null;
   vinted_username: string | null;
+  email_address: string | null;
   openai_key_configured: boolean;
   updated_at: string;
 }
@@ -23,6 +24,7 @@ export async function saveSettings(input: {
   openaiApiKey?: string;
   openaiModel?: string;
   vintedUsername?: string;
+  emailAddress?: string;
 }): Promise<void> {
   const {
     data: { user },
@@ -32,6 +34,7 @@ export async function saveSettings(input: {
   const payload: Record<string, unknown> = {
     openai_model: input.openaiModel || 'gpt-4o-mini',
     vinted_username: input.vintedUsername || null,
+    email_address: input.emailAddress || null,
   };
   if (input.openaiApiKey) {
     payload.openai_api_key = input.openaiApiKey.trim();

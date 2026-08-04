@@ -67,3 +67,34 @@ export async function checkApiHealth(): Promise<{
   if (!res.ok) throw new Error('API unreachable');
   return res.json();
 }
+
+export interface EmailItemPayload {
+  item_number?: string;
+  title?: string;
+  description?: string;
+  list_price?: number | null;
+  size?: string | null;
+  colour?: string | null;
+  brand?: string | null;
+  tags?: string[] | null;
+  image_urls?: string[];
+}
+
+/** Email one or more listings to the user's saved address. */
+export async function sendListingsEmail(items: EmailItemPayload[]): Promise<{
+  ok: boolean;
+  id?: string;
+  to?: string;
+  count?: number;
+}> {
+  const res = await fetch(`${API_BASE}/api/email/send`, {
+    method: 'POST',
+    headers: await authedHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Email send failed (${res.status})`);
+  }
+  return res.json();
+}

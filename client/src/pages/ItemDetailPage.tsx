@@ -6,11 +6,12 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Mail,
   Sparkles,
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { generateListing } from '../lib/api';
+import { generateListing, sendListingsEmail } from '../lib/api';
 import {
   deleteItem,
   fetchItem,
@@ -63,6 +64,7 @@ export function ItemDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [scheduleAt, setScheduleAt] = useState('');
   const [salePrice, setSalePrice] = useState('');
+  const [emailing, setEmailing] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -167,6 +169,34 @@ export function ItemDetailPage() {
   async function handleCopy(text: string, label: string) {
     const ok = await copyToClipboard(text);
     flash(ok ? `${label} copied` : 'Copy failed');
+  }
+
+  async function handleEmailListing() {
+    if (!item) return;
+    setEmailing(true);
+    setError(null);
+    try {
+      await sendListingsEmail([
+        {
+          item_number: item.item_number,
+          title: form?.title || undefined,
+          description: form?.description || undefined,
+          list_price: form?.list_price ? Number(form.list_price) : null,
+          size: form?.size || null,
+          colour: form?.colour || null,
+          brand: form?.brand || null,
+          tags: form?.tags
+            ? form.tags.split(',').map((t) => t.trim()).filter(Boolean)
+            : null,
+          image_urls: item.item_images?.map((i) => i.public_url) || [],
+        },
+      ]);
+      flash('Listing emailed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Email failed');
+    } finally {
+      setEmailing(false);
+    }
   }
 
   async function handleSchedule() {
@@ -373,6 +403,16 @@ export function ItemDetailPage() {
                 Copy all
               </Button>
             )}
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={emailing}
+              onClick={handleEmailListing}
+            >
+              {emailing ? <Spinner /> : <Mail size={14} />}
+              Email listing
+            </Button>
           </div>
         </div>
       </Card>
