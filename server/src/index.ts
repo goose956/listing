@@ -32,13 +32,11 @@ const clientDist = path.resolve(__dirname, '../../client/dist');
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
   // SPA fallback — must come after API routes.
+  // Middleware-based (not a route pattern) so it works on every Express version.
   // Exclude /api so unknown API paths return a JSON 404, not index.html.
-  // Express 5 / path-to-regexp v8 requires a named wildcard (/*splat).
-  app.get('/*splat', (req, res) => {
-    if (req.path.startsWith('/api/')) {
-      res.status(404).json({ error: 'Not found' });
-      return;
-    }
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (req.path.startsWith('/api/')) return next();
     res.sendFile(path.join(clientDist, 'index.html'));
   });
   console.log(`Serving client from ${clientDist}`);
