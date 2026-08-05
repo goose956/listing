@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Listings Assistant for Vinted",
-  "version": "1.0.0",
-  "description": "Fill your Vinted listing form from your Listings Assistant queue",
+  "name": "Listings Assistant",
+  "version": "1.1.0",
+  "description": "Fill Vinted and Depop listing forms from your Listings Assistant queue",
   "permissions": ["storage", "alarms", "activeTab", "tabs"],
   "host_permissions": [
     "https://www.vinted.co.uk/*",
@@ -15,6 +15,7 @@
     "https://www.vinted.es/*",
     "https://www.vinted.pt/*",
     "https://www.vinted.pl/*",
+    "https://www.depop.com/*",
     "https://*.railway.app/*",
     "http://localhost:3001/*"
   ],
@@ -36,6 +37,16 @@
         "https://www.vinted.ie/items/new*"
       ],
       "js": ["src/content/content.ts"],
+      "css": ["src/content/sidebar.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.depop.com/products/create*",
+        "https://www.depop.com/products/edit*",
+        "https://www.depop.com/sell*"
+      ],
+      "js": ["src/content/depop.ts"],
       "css": ["src/content/sidebar.css"],
       "run_at": "document_idle"
     }
