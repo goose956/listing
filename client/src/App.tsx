@@ -10,6 +10,7 @@ import { ItemDetailPage } from './pages/ItemDetailPage';
 import { QueuePage } from './pages/QueuePage';
 import { StoragePage } from './pages/StoragePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AdminPage } from './pages/AdminPage';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading, configured } = useAuth();
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="queue" element={<QueuePage />} />
         <Route path="storage" element={<StoragePage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -9,6 +9,7 @@ import { imagesRouter } from './routes/images.js';
 import { healthRouter } from './routes/health.js';
 import { emailRouter } from './routes/email.js';
 import { extensionRouter } from './routes/extension.js';
+import { adminRouter } from './routes/admin.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -36,6 +37,7 @@ app.use('/api/ai', aiRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/extension', extensionRouter);
+app.use('/api/admin', adminRouter);
 
 // ---- Serve built client (single-dyno deploy) ----
 // If client/dist exists, serve it as static files and fall back to index.html

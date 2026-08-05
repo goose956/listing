@@ -8,12 +8,14 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { fetchAdminCheck } from '../lib/admin';
 
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
   loading: boolean;
   configured: boolean;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
@@ -29,6 +31,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin status whenever user changes
+  useEffect(() => {
+    if (user) {
+      fetchAdminCheck().then(setIsAdmin);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -63,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       configured: isSupabaseConfigured,
+      isAdmin,
       async signIn(email, password) {
         const { error } = await supabase.auth.signInWithPassword({
           email,

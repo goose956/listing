@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  ShieldCheck,
   X,
   Warehouse,
 } from 'lucide-react';
@@ -26,7 +27,7 @@ const nav = [
 ];
 
 export function Layout() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [dueCount, setDueCount] = useState(0);
@@ -158,6 +159,22 @@ export function Layout() {
                 {item.label}
               </NavLink>
             ))}
+            {isAdmin && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                    isActive
+                      ? 'bg-teal-50 text-teal-800'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  )
+                }
+              >
+                <ShieldCheck size={18} />
+                Admin
+              </NavLink>
+            )}
           </nav>
 
           <div className="mt-auto border-t border-slate-100 pt-3">
