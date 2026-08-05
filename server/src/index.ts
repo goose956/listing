@@ -10,6 +10,7 @@ import { healthRouter } from './routes/health.js';
 import { emailRouter } from './routes/email.js';
 import { extensionRouter } from './routes/extension.js';
 import { adminRouter } from './routes/admin.js';
+import { stripeRouter, stripeWebhookHandler } from './routes/stripe.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,6 +30,9 @@ app.use(cors({
   credentials: true,
 }));
 
+// Webhook needs raw body for Stripe signature verification — must be before express.json()
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
@@ -38,6 +42,7 @@ app.use('/api/images', imagesRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/extension', extensionRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/stripe', stripeRouter);
 
 // ---- Serve built client (single-dyno deploy) ----
 // If client/dist exists, serve it as static files and fall back to index.html

@@ -9,6 +9,7 @@ import {
 import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { fetchAdminCheck } from '../lib/admin';
+import { fetchSubscriptionStatus } from '../lib/stripe';
 
 interface AuthContextValue {
   user: User | null;
@@ -16,6 +17,10 @@ interface AuthContextValue {
   loading: boolean;
   configured: boolean;
   isAdmin: boolean;
+  isPro: boolean;
+  creditsUsed: number;
+  creditsLimit: number | null;
+  refreshSubscription: () => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
@@ -32,13 +37,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+  const [creditsUsed, setCreditsUsed] = useState(0);
+  const [creditsLimit, setCreditsLimit] = useState<number | null>(5);
 
-  // Check admin status whenever user changes
+  function refreshSubscription() {
+    fetchSubscriptionStatus()
+      .then((s) => {
+        setIsPro(s.isPro);
+        setCreditsUsed(s.creditsUsed);
+        setCreditsLimit(s.creditsLimit);
+      })
+      .catch(() => {});
+  }
+
+  // Check admin + subscription whenever user changes
   useEffect(() => {
     if (user) {
       fetchAdminCheck().then(setIsAdmin);
+      refreshSubscription();
     } else {
       setIsAdmin(false);
+      setIsPro(false);
+      setCreditsUsed(0);
+      setCreditsLimit(5);
     }
   }, [user?.id]);
 
@@ -76,6 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       configured: isSupabaseConfigured,
       isAdmin,
+      isPro,
+      creditsUsed,
+      creditsLimit,
+      refreshSubscription,
       async signIn(email, password) {
         const { error } = await supabase.auth.signInWithPassword({
           email,

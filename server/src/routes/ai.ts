@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { analyzeItemPrompt, listingGenerationPrompt } from '../services/prompts.js';
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin.js';
 import { createImageCollage } from '../lib/imageCollage.js';
+import { isStripeConfigured, FREE_AI_CREDITS } from '../lib/stripe.js';
 
 export const aiRouter = Router();
 
@@ -46,6 +47,44 @@ function getOpenAI(apiKey: string) {
 }
 
 /**
+ * Returns null if allowed, or an error response payload if the user is over their credit limit.
+ * When Stripe isn't configured, everyone is allowed through.
+ */
+async function checkAICredits(userId: string | null): Promise<{ status: number; error: string; creditsUsed: number; creditsLimit: number } | null> {
+  if (!userId || !isStripeConfigured() || !isSupabaseAdminConfigured()) return null;
+
+  const { data: profile } = await getSupabaseAdmin()
+    .from('profiles')
+    .select('subscription_status, ai_credits_used')
+    .eq('id', userId)
+    .single();
+
+  if (!profile) return null;
+
+  const isPro = profile.subscription_status === 'active' || profile.subscription_status === 'trialing';
+  if (isPro) return null;
+
+  const used = profile.ai_credits_used ?? 0;
+  if (used < FREE_AI_CREDITS) return null;
+
+  return { status: 402, error: 'Free credits exhausted. Upgrade to Pro for unlimited AI.', creditsUsed: used, creditsLimit: FREE_AI_CREDITS };
+}
+
+async function incrementAICredits(userId: string | null) {
+  if (!userId || !isSupabaseAdminConfigured()) return;
+  // Only increment for free users — pro users have null limit
+  const { data: profile } = await getSupabaseAdmin()
+    .from('profiles')
+    .select('subscription_status')
+    .eq('id', userId)
+    .single();
+  const isPro = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing';
+  if (!isPro) {
+    await getSupabaseAdmin().rpc('increment_ai_credits', { user_id: userId });
+  }
+}
+
+/**
  * Analyse product images and suggest item details.
  * Body: { imageUrls: string[], purchasePrice?: number }
  */
@@ -62,6 +101,10 @@ aiRouter.post('/analyse', async (req, res) => {
 
     // Determine which API key to use
     const userId = await resolveUserId(req.headers.authorization);
+
+    const creditBlock = await checkAICredits(userId);
+    if (creditBlock) return res.status(creditBlock.status).json(creditBlock);
+
     const apiKey = await resolveOpenAIKey(userId);
     if (!apiKey) {
       return res.status(400).json({
@@ -101,6 +144,7 @@ aiRouter.post('/analyse', async (req, res) => {
     }
 
     res.json({ analysis, model: response.model });
+    await incrementAICredits(userId);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'AI analysis failed';
     console.error('AI analyse error:', message);
@@ -129,6 +173,10 @@ aiRouter.post('/listing', async (req, res) => {
     };
 
     const userId = await resolveUserId(req.headers.authorization);
+
+    const creditBlock = await checkAICredits(userId);
+    if (creditBlock) return res.status(creditBlock.status).json(creditBlock);
+
     const apiKey = await resolveOpenAIKey(userId);
     if (!apiKey) {
       return res.status(400).json({
@@ -169,6 +217,7 @@ aiRouter.post('/listing', async (req, res) => {
     }
 
     res.json({ listing, model: response.model });
+    await incrementAICredits(userId);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Listing generation failed';
     console.error('AI listing error:', message);

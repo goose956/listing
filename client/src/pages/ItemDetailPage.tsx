@@ -57,8 +57,9 @@ import { ImageViewer } from '../components/ImageViewer';
 
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user, isPro, creditsUsed, creditsLimit } = useAuth();
+  const outOfCredits = !isPro && creditsLimit != null && creditsUsed >= creditsLimit;
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [item, setItem] = useState<Item | null>(null);
@@ -392,13 +393,19 @@ export function ItemDetailPage() {
             type="button"
             size="sm"
             variant="secondary"
-            disabled={generating}
-            onClick={handleGenerateListing}
+            disabled={generating || outOfCredits}
+            onClick={outOfCredits ? undefined : handleGenerateListing}
+            title={outOfCredits ? 'Upgrade to Pro for unlimited AI' : undefined}
           >
             {generating ? <Spinner /> : <Sparkles size={14} />}
-            Generate with AI
+            {outOfCredits ? 'No credits — Upgrade' : 'Generate with AI'}
           </Button>
         </div>
+        {outOfCredits && (
+          <Link to="/billing" className="inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100">
+            <Sparkles size={12} /> You've used all 5 free AI credits — upgrade to Pro for unlimited
+          </Link>
+        )}
 
         <div className="space-y-3">
           <div className="relative">
