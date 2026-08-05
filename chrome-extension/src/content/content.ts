@@ -41,6 +41,31 @@ const SELECTORS = {
     'input[placeholder*="nike" i]',
     'input[placeholder*="h&m" i]',
   ],
+  size: [
+    'input[data-testid="upload-form-size"]',
+    'input[data-testid*="size"]',
+    'select[data-testid*="size"]',
+    'input[name="size"]',
+    'input[aria-label*="size" i]',
+    'input[placeholder*="size" i]',
+  ],
+  condition: [
+    'input[data-testid="upload-form-condition"]',
+    'select[data-testid*="condition"]',
+    'input[name="condition"]',
+    'input[aria-label*="condition" i]',
+    'select[aria-label*="condition" i]',
+  ],
+  colour: [
+    'input[data-testid="upload-form-colour"]',
+    'input[data-testid*="color"]',
+    'select[data-testid*="colour"]',
+    'select[data-testid*="color"]',
+    'input[name="colour"]',
+    'input[name="color"]',
+    'input[aria-label*="colour" i]',
+    'input[aria-label*="color" i]',
+  ],
 };
 
 // ── State ─────────────────────────────────────────────────────
@@ -86,12 +111,7 @@ async function fillVintedForm(item: QueueItem): Promise<Record<string, boolean>>
     else console.warn('[LA] Price field not found — tried:', SELECTORS.price);
   }
 
-  if (item.brand) {
-    const el = findFirst(SELECTORS.brand) as HTMLInputElement | null;
-    status.brand = !!el;
-    if (el) setReactInputValue(el, item.brand);
-    else console.warn('[LA] Brand field not found — tried:', SELECTORS.brand);
-  }
+  // Brand only appears after category is selected — filled via sidebar button
 
   // Inject (or refresh) the sidebar
   injectSidebar(item, status);
@@ -115,6 +135,31 @@ function injectSidebar(item: QueueItem, status: Record<string, boolean>) {
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = buildSidebarHTML(item, status);
 
+  // Download all photos
+  shadow.getElementById('la-download-all')?.addEventListener('click', async () => {
+    const btn = shadow.getElementById('la-download-all') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Downloading…';
+    for (let i = 0; i < item.images.length; i++) {
+      const img = item.images[i];
+      const a = document.createElement('a');
+      a.href = img.url;
+      a.download = `${item.item_number}-${i + 1}.jpg`;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      if (i < item.images.length - 1) await sleep(400);
+    }
+    btn.textContent = `✓ ${item.images.length} downloaded`;
+    btn.style.background = '#16a34a';
+    setTimeout(() => {
+      btn.textContent = 'Download all photos';
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 3000);
+  });
+
   // Photo download buttons
   shadow.querySelectorAll<HTMLAnchorElement>('[data-download]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -136,6 +181,32 @@ function injectSidebar(item: QueueItem, status: Record<string, boolean>) {
     const collapsed = panel.dataset.collapsed === 'true';
     panel.dataset.collapsed = collapsed ? 'false' : 'true';
     panel.style.transform = collapsed ? 'translateX(0)' : 'translateX(calc(100% - 36px))';
+  });
+
+  // Fill remaining fields (brand/size/condition/colour appear after category selection)
+  shadow.getElementById('la-fill-remaining')?.addEventListener('click', () => {
+    const deferred: Array<{ key: keyof typeof SELECTORS; label: string; value: string | undefined }> = [
+      { key: 'brand',     label: 'Brand',     value: item.brand ?? undefined },
+      { key: 'size',      label: 'Size',      value: item.size ?? undefined },
+      { key: 'condition', label: 'Condition', value: item.condition ?? undefined },
+      { key: 'colour',    label: 'Colour',    value: item.colour ?? undefined },
+    ];
+    let filled = 0;
+    for (const field of deferred) {
+      if (!field.value) continue;
+      const el = findFirst(SELECTORS[field.key]) as HTMLInputElement | null;
+      const row = shadow.getElementById(`la-deferred-${field.key}`);
+      if (el) {
+        setReactInputValue(el, field.value);
+        filled++;
+        if (row) row.innerHTML = `<span class="field-label">${field.label}</span><span class="field-status" style="color:#4ade80">✓ Filled</span>`;
+      } else {
+        if (row) row.innerHTML = `<span class="field-label">${field.label}</span><span class="field-status" style="color:#94a3b8">— not visible yet</span>`;
+      }
+    }
+    const btn = shadow.getElementById('la-fill-remaining') as HTMLButtonElement;
+    btn.textContent = filled > 0 ? `↻ Filled ${filled} — click again for more` : '↻ No new fields found yet';
+    setTimeout(() => { btn.textContent = 'Fill remaining fields'; }, 2500);
   });
 
   // Mark as listed
@@ -170,7 +241,6 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
     { key: 'price', label: 'Price' },
-    { key: 'brand', label: 'Brand' },
   ];
 
   const fieldRows = fields
@@ -184,6 +254,22 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
         <span class="field-status" style="color:${color}">${icon} ${filled ? 'Filled' : 'Not found'}</span>
       </div>`;
     }).join('');
+
+  const deferredFields = [
+    { key: 'brand',     label: 'Brand',     value: item.brand },
+    { key: 'size',      label: 'Size',      value: item.size },
+    { key: 'condition', label: 'Condition', value: item.condition },
+    { key: 'colour',    label: 'Colour',    value: item.colour },
+  ].filter(f => f.value);
+
+  const deferredSection = deferredFields.length > 0 ? `
+    <div class="deferred-note">Select a Category first, then:</div>
+    <button class="btn-fill-remaining" id="la-fill-remaining">Fill remaining fields</button>
+    ${deferredFields.map(f => `
+    <div class="field-row" id="la-deferred-${f.key}">
+      <span class="field-label">${f.label}</span>
+      <span class="field-status" style="color:#475569">— pending</span>
+    </div>`).join('')}` : '';
 
   const photoItems = item.images.map((img, i) => `
     <div class="photo-item">
@@ -229,6 +315,10 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
     .field-label { color: #94a3b8; }
     .field-status { font-size: 12px; font-weight: 500; }
     .photos { padding: 8px 12px; flex: 1; overflow-y: auto; }
+    .photos-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .btn-dl-all { font-size: 11px; padding: 3px 8px; background: #1e3a5f; color: #93c5fd; border: 1px solid #2563eb; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+    .btn-dl-all:hover { background: #1e40af; }
+    .btn-dl-all:disabled { opacity: 0.6; cursor: default; }
     .photos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .photo-item { position: relative; border-radius: 6px; overflow: hidden; aspect-ratio: 1; background: #1e293b; }
     .photo-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -241,6 +331,9 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
     .btn-listed { width: 100%; padding: 9px; background: #0d9488; color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; }
     .btn-listed:hover { background: #0f766e; }
     .btn-listed:disabled { opacity: 0.55; cursor: not-allowed; }
+    .deferred-note { font-size: 10px; color: #64748b; margin-top: 8px; margin-bottom: 4px; }
+    .btn-fill-remaining { width: 100%; font-size: 11px; padding: 5px 8px; background: #1e3a5f; color: #93c5fd; border: 1px solid #2563eb; border-radius: 5px; cursor: pointer; margin-bottom: 4px; }
+    .btn-fill-remaining:hover { background: #1e40af; }
   </style>
   <div id="la-panel">
     <button id="la-toggle">⬅</button>
@@ -251,10 +344,13 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
     </div>
     <div class="section">
       <div class="section-title">Fields</div>
-      ${fieldRows}
+      ${fieldRows}${deferredSection}
     </div>
     <div class="photos">
-      <div class="section-title" style="margin-bottom:8px">Photos — download &amp; upload to Vinted</div>
+      <div class="photos-header">
+        <div class="section-title">Photos</div>
+        ${item.images.length > 0 ? `<button class="btn-dl-all" id="la-download-all">Download all</button>` : ''}
+      </div>
       ${item.images.length > 0
         ? `<div class="photos-grid">${photoItems}</div>`
         : '<div class="no-photos">No photos stored</div>'}

@@ -352,6 +352,17 @@ export async function cancelQueueEntry(queueId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function markItemListed(itemId: string): Promise<Item> {
+  const { data, error } = await supabase
+    .from('items')
+    .update({ status: 'listed', listed_date: new Date().toISOString() })
+    .eq('id', itemId)
+    .select('*, item_images(*)')
+    .single();
+  if (error) throw error;
+  return normalizeItem(data);
+}
+
 export async function markItemSold(
   itemId: string,
   salePrice: number

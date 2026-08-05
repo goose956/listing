@@ -5,7 +5,9 @@ import {
   ArrowLeft,
   CalendarPlus,
   Check,
+  CheckCheck,
   Copy,
+  Download,
   ExternalLink,
   Mail,
   Sparkles,
@@ -17,6 +19,7 @@ import {
   deleteItem,
   fetchItem,
   itemToForm,
+  markItemListed,
   markItemSold,
   scheduleListing,
   updateItem,
@@ -67,6 +70,7 @@ export function ItemDetailPage() {
   const [scheduleAt, setScheduleAt] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [emailing, setEmailing] = useState(false);
+  const [markingListed, setMarkingListed] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -216,6 +220,37 @@ export function ItemDetailPage() {
     }
   }
 
+  async function handleMarkListed() {
+    if (!id) return;
+    setMarkingListed(true);
+    try {
+      const updated = await markItemListed(id);
+      setItem(updated);
+      setForm(itemToForm(updated));
+      flash('Marked as listed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to mark as listed');
+    } finally {
+      setMarkingListed(false);
+    }
+  }
+
+  function handleDownloadAll() {
+    if (!item?.item_images?.length) return;
+    item.item_images.forEach((img, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = img.public_url;
+        a.download = `${item.item_number}-${i + 1}.jpg`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }, i * 400);
+    });
+    flash(`Downloading ${item.item_images.length} photos…`);
+  }
+
   async function handleSold() {
     if (!id || !salePrice) return;
     try {
@@ -292,7 +327,20 @@ export function ItemDetailPage() {
       )}
 
       {/* Images */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+      <div className="mb-4">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-xs text-slate-400">{item.item_images?.length ?? 0} photo{item.item_images?.length !== 1 ? 's' : ''}</span>
+          {(item.item_images?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={handleDownloadAll}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <Download size={12} /> Download all
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
         {item.item_images?.length ? (
           item.item_images.map((img) => (
             <ImageViewer
@@ -308,8 +356,7 @@ export function ItemDetailPage() {
           <div className="flex h-36 w-full items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-400">
             No photos
           </div>
-        )}
-      </div>
+        )}        </div>      </div>
 
       {/* Vinted listing assistant */}
       <Card className="mb-4">
@@ -396,12 +443,23 @@ export function ItemDetailPage() {
                 type="button"
                 size="sm"
                 variant="ghost"
-                onClick={() =>
-                  handleCopy(
-                    `${form.title}\n\n${form.description}\n\n£${form.list_price}`,
-                    'Full listing'
-                  )
-                }
+                onClick={() => {
+                  const parts = [
+                    form.title,
+                    '',
+                    form.description,
+                    '',
+                    [
+                      form.brand && `Brand: ${form.brand}`,
+                      form.size && `Size: ${form.size}`,
+                      form.colour && `Colour: ${form.colour}`,
+                      form.condition && `Condition: ${CONDITION_LABELS[form.condition as ItemCondition] ?? form.condition}`,
+                      form.list_price && `Price: £${form.list_price}`,
+                      form.tags && `Tags: ${form.tags}`,
+                    ].filter(Boolean).join('\n'),
+                  ].join('\n').trim();
+                  handleCopy(parts, 'Full listing');
+                }}
               >
                 <Copy size={14} />
                 Copy all
@@ -417,6 +475,18 @@ export function ItemDetailPage() {
               {emailing ? <Spinner /> : <Mail size={14} />}
               Email listing
             </Button>
+            {item.status !== 'listed' && item.status !== 'sold' && (
+              <Button
+                type="button"
+                size="sm"
+                variant="success"
+                disabled={markingListed}
+                onClick={handleMarkListed}
+              >
+                {markingListed ? <Spinner /> : <CheckCheck size={14} />}
+                Mark as listed
+              </Button>
+            )}
           </div>
         </div>
       </Card>

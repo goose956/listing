@@ -154,7 +154,7 @@ async function handleFillForm(item: QueueItem, card: HTMLElement, token: string)
 
   // Check we're on the Vinted sell page
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab.id || !tab.url?.match(/vinted\.\w+\/items\/new/)) {
+  if (!tab.id || !tab.url?.match(/vinted\.[^/]+\/items\/new/)) {
     btn.textContent = 'Open Vinted\'s sell page first';
     btn.disabled = true;
     setTimeout(() => {
