@@ -3,7 +3,7 @@
   "name": "Listings Assistant",
   "version": "1.1.0",
   "description": "Fill Vinted and Depop listing forms from your Listings Assistant queue",
-  "permissions": ["storage", "alarms", "activeTab", "tabs"],
+  "permissions": ["storage", "alarms", "activeTab", "tabs", "downloads"],
   "host_permissions": [
     "https://www.vinted.co.uk/*",
     "https://www.vinted.com/*",

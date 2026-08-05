@@ -25,6 +25,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((err) => sendResponse({ success: false, error: String(err) }));
     return true;
   }
+
+  if (message.type === 'DOWNLOAD_IMAGE') {
+    // Route through service worker so chrome.downloads can set a subfolder path
+    chrome.downloads.download({
+      url: message.url as string,
+      filename: `Listings Assistant/${message.itemNumber}/${message.filename}`,
+      conflictAction: 'uniquify',
+    });
+    sendResponse({ success: true });
+    return true;
+  }
 });
 
 // ── Badge update ──────────────────────────────────────────────

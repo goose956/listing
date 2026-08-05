@@ -118,36 +118,23 @@ function injectSidebar(item: QueueItem, status: Record<string, boolean>) {
     btn.textContent = 'Downloading…';
     for (let i = 0; i < item.images.length; i++) {
       const img = item.images[i];
-      const a = document.createElement('a');
-      a.href = img.url;
-      a.download = `${item.item_number}-${i + 1}.jpg`;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      await downloadImage(img.url, item.item_number, `${item.item_number}-${i + 1}.jpg`);
       if (i < item.images.length - 1) await sleep(400);
     }
-    btn.textContent = `✓ ${item.images.length} downloaded`;
+    btn.textContent = `✓ ${item.images.length} downloaded to Listings Assistant/${item.item_number}/`;
     btn.style.background = '#16a34a';
     setTimeout(() => {
       btn.textContent = 'Download all photos';
       btn.style.background = '';
       btn.disabled = false;
-    }, 3000);
+    }, 4000);
   });
 
   // Individual photo downloads
   shadow.querySelectorAll<HTMLAnchorElement>('[data-download]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      const url = btn.dataset.download!;
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = btn.dataset.filename!;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      downloadImage(btn.dataset.download!, btn.dataset.itemnumber!, btn.dataset.filename!);
     });
   });
 
@@ -243,7 +230,7 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
     <div class="photo-item">
       <img src="${img.url}" alt="Photo ${i + 1}">
       <div class="photo-num">${i + 1}</div>
-      <a class="photo-dl" data-download="${img.url}" data-filename="${item.item_number}-${i + 1}.jpg" href="#">⬇</a>
+      <a class="photo-dl" data-download="${img.url}" data-itemnumber="${item.item_number}" data-filename="${item.item_number}-${i + 1}.jpg" href="#">⬇</a>
     </div>`).join('');
 
   return `
@@ -380,4 +367,8 @@ function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: strin
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function downloadImage(url: string, itemNumber: string, filename: string) {
+  chrome.runtime.sendMessage({ type: 'DOWNLOAD_IMAGE', url, itemNumber, filename });
 }
