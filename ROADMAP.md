@@ -72,11 +72,21 @@
 ## Phase 3 — Inventory Intelligence
 > Goal: Reduce manual work and catch mistakes automatically
 
-- [ ] **Auto-delisting**
-  - When item marked as sold on one platform, auto-cancel/delist from others
-  - eBay: use Revise/End listing API
-  - Vinted/Depop: notify user via in-app alert (no API — manual action required)
-  - Prevent overselling across platforms
+- [ ] **Auto-delisting when sold**
+  - When item marked as sold on one platform, trigger delist on others
+  - eBay: auto-call `EndItem` API — fully automatic
+  - Vinted/Depop: show checklist with direct links to listings (manual one-click)
+  - Store `listing_url` on queue entries (captured by extension sidebar when marking listed)
+
+- [ ] **Email-based sale detection (cross-platform sold monitoring)**
+  - Each user gets a unique inbound address: `{userId}@mail.listingsassistant.com`
+  - User creates a forwarding rule in Gmail/Outlook: all emails from vinted, depop, ebay → their app address
+  - Inbound webhook (Postmark Inbound or Mailgun) → GPT-4o parses email → extracts platform, item title, sale price
+  - Fuzzy-matches against user's inventory → auto-marks sold → triggers delist flow
+  - Works for any marketplace with no API dependency — just email forwarding
+  - Setup UI in Settings: show unique forwarding address + per-platform forwarding instructions
+  - Infrastructure needed: subdomain MX records (e.g. `mail.listingsassistant.com` → Postmark), one-time setup
+  - Do not store raw email content long-term (GDPR — contains buyer info)
 
 - [ ] **Sold item import**
   - eBay: poll sold orders via API and auto-mark items as sold in app
