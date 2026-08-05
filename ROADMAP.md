@@ -121,6 +121,36 @@
 ## Phase 5 — Growth Features
 > Goal: Features that drive word-of-mouth and retention
 
+- [ ] **Social content engine (TikTok / Reels / Shorts)**
+  > Turns existing listing photos into ready-to-post vertical video + caption — no extra work for the seller.
+
+  **Caption & hashtag generator (quick win — one GPT-4o call)**
+  - Uses item title, brand, category, price already in the DB
+  - Generates: hook line, 2–3 sentence description, 8–12 hashtags tailored to platform (TikTok vs Instagram vs YouTube)
+  - Output shown in item detail page with one-click copy
+  - API: OpenAI GPT-4o (already integrated, tiny extra cost ~0.1p per caption)
+
+  **Slideshow video generator**
+  - Takes the 4–6 listing photos and stitches into a 9:16 vertical MP4 (15–30 seconds)
+  - Fast aesthetic cuts timed to beats, item number + price text overlay
+  - No music included — user adds their own in TikTok/Instagram editor
+  - Output: downloadable MP4 — user posts manually (avoids TikTok API approval process)
+  - API options (choose one):
+    - **Shotstack** (shotstack.io) — cloud video rendering API, Node.js SDK, ~$0.05–0.10/render, $49/month starter
+    - **Creatomate** (creatomate.com) — similar, template-based, ~$0.05/render, $19/month starter
+    - **FFmpeg on Railway** — free (open source), but requires binary install in Railway build; more engineering effort
+  - Recommended: start with Shotstack (simpler API, good docs) then evaluate cost at scale
+
+  **Implementation plan**
+  - Phase A: Caption + hashtag generator only — ships in a day, zero extra infrastructure
+  - Phase B: Video slideshow — needs Shotstack/Creatomate account + server route + download endpoint
+  - Phase C: Text overlay / AI voiceover — OpenAI TTS (`tts-1` model, ~£0.01/item), burn audio onto video via Shotstack
+  - Gate Phase B/C behind Pro plan (video generation = meaningful server cost)
+
+  **Pricing implications**
+  - Adds strong justification for a "Creator" tier above Pro (e.g. £19.99/month)
+  - Could also sell video credits à la carte (10 videos for £2)
+
 - [ ] **Analytics dashboard**
   - Revenue over time chart
   - Best-performing categories / brands
