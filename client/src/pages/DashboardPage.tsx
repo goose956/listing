@@ -9,6 +9,8 @@ import {
   Plus,
   PoundSterling,
   Search,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { fetchDashboardStats, fetchItems, fetchQueue } from '../lib/items';
@@ -18,7 +20,6 @@ import {
   Alert,
   Button,
   Card,
-  EmptyState,
   LoadingScreen,
   PageHeader,
   StatCard,
@@ -186,15 +187,7 @@ export function DashboardPage() {
             </Link>
           </div>
           {recent.length === 0 ? (
-            <EmptyState
-              title="No inventory yet"
-              description="Capture your first boot sale find from your phone."
-              action={
-                <Link to="/add">
-                  <Button>Add first item</Button>
-                </Link>
-              }
-            />
+            <OnboardingChecklist stats={stats} />
           ) : (
             <div className="space-y-2.5">
               {recent.map((item) => (
@@ -256,6 +249,66 @@ export function DashboardPage() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Onboarding checklist (shown when user has no items yet) ───────────────────
+function OnboardingChecklist({ stats }: { stats: DashboardStats | null }) {
+  const hasItems   = (stats?.total_items ?? 0) > 0;
+  const hasListing = ((stats?.ready_for_listing ?? 0) + (stats?.listed ?? 0) + (stats?.sold ?? 0)) > 0;
+  const hasPosted  = ((stats?.listed ?? 0) + (stats?.sold ?? 0) + (stats?.queue_pending ?? 0)) > 0;
+
+  const steps = [
+    {
+      done: hasItems,
+      title: 'Add your first item',
+      description: 'Take photos of something you want to sell and add it to your inventory.',
+      cta: <Link to="/add"><Button size="sm">Add item</Button></Link>,
+    },
+    {
+      done: hasListing,
+      title: 'Generate a listing with AI',
+      description: 'Open the item, click "Generate with AI" — title, description and price are written for you.',
+      cta: null,
+    },
+    {
+      done: hasPosted,
+      title: 'Schedule or post it',
+      description: 'Copy the listing to Vinted manually, or use the Chrome extension to fill the form automatically.',
+      cta: null,
+    },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-teal-100 bg-gradient-to-br from-teal-50 to-white p-5">
+        <p className="text-base font-semibold text-slate-900">Welcome to Listings Assistant 👋</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Get your first item listed in 3 steps. This guide disappears once you're up and running.
+        </p>
+      </div>
+      {steps.map((step, i) => (
+        <div
+          key={i}
+          className={`flex gap-4 rounded-xl border p-4 transition-opacity ${
+            step.done ? 'border-emerald-100 bg-emerald-50/50 opacity-70' : 'border-slate-200 bg-white'
+          }`}
+        >
+          <div className="mt-0.5 shrink-0">
+            {step.done
+              ? <CheckCircle2 size={20} className="text-emerald-500" />
+              : <Circle size={20} className="text-slate-300" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`text-sm font-semibold ${step.done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+              Step {i + 1}: {step.title}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">{step.description}</p>
+            {!step.done && step.cta && <div className="mt-3">{step.cta}</div>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

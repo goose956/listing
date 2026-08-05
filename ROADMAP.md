@@ -15,21 +15,27 @@
 ## Phase 1 — Commercial Foundation
 > Goal: Make the app ready to charge real users money
 
+- [x] **Admin panel**
+  - User list with email, joined date, item count, AI usage
+  - Delete user (with cascade — removes all their data)
+  - Config tab showing which API keys are set (never exposes values)
+  - Platform-wide stats overview
+  - Admin access gated by `ADMIN_EMAIL` env var
+
+- [x] **Use your own OpenAI key**
+  - Server already uses `OPENAI_API_KEY` env var; user key is optional override
+  - Set `OPENAI_API_KEY` in Railway Variables to remove the requirement from users
+
+- [x] **Onboarding flow**
+  - 3-step checklist on dashboard for new users (add item → generate listing → schedule/post)
+  - Steps auto-complete based on real user data
+  - Disappears once user has items in inventory
+
 - [ ] **Stripe subscription integration**
   - Add Stripe Checkout + billing portal
   - Gate features by plan (e.g. AI credits, number of items)
   - Store subscription status in Supabase per user
   - Webhook handler for subscription events (created, cancelled, past_due)
-
-- [ ] **Use your own OpenAI key**
-  - Remove requirement for users to provide their own OpenAI API key
-  - Track AI credit usage per user per month
-  - Enforce limits based on subscription plan
-
-- [ ] **Onboarding flow**
-  - Post-signup walkthrough: add first item → generate listing → schedule
-  - Empty state improvements across all pages
-  - In-app tips / tooltips for first-time users
 
 - [ ] **Per-user item numbering**
   - Item numbers (V-000001 etc.) currently use a global sequence shared across all users

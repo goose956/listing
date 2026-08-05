@@ -11,7 +11,7 @@ import {
   type AdminUser,
   type ConfigKey,
 } from '../lib/admin';
-import { Alert, Badge, Button, Card, LoadingScreen, Spinner } from '../components/ui';
+import { Alert, Button, Card, LoadingScreen, Spinner } from '../components/ui';
 import { formatDate } from '../lib/format';
 
 type Tab = 'overview' | 'users' | 'config';
@@ -203,13 +203,13 @@ function ConfigTab() {
               <p className="text-xs text-slate-400 font-mono">{k.key}</p>
             </div>
             {k.configured ? (
-              <Badge tone="emerald" className="flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
                 <CheckCircle size={12} /> Configured
-              </Badge>
+              </span>
             ) : (
-              <Badge tone="amber" className="flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
                 <XCircle size={12} /> Not set
-              </Badge>
+              </span>
             )}
           </div>
         ))}
