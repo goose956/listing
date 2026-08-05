@@ -20,6 +20,8 @@ interface AuthContextValue {
   isPro: boolean;
   creditsUsed: number;
   creditsLimit: number | null;
+  itemCount: number;
+  itemLimit: number | null;
   refreshSubscription: () => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (
@@ -40,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPro, setIsPro] = useState(false);
   const [creditsUsed, setCreditsUsed] = useState(0);
   const [creditsLimit, setCreditsLimit] = useState<number | null>(5);
+  const [itemCount, setItemCount] = useState(0);
+  const [itemLimit, setItemLimit] = useState<number | null>(10);
 
   function refreshSubscription() {
     fetchSubscriptionStatus()
@@ -47,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsPro(s.isPro);
         setCreditsUsed(s.creditsUsed);
         setCreditsLimit(s.creditsLimit);
+        setItemCount(s.itemCount);
+        setItemLimit(s.itemLimit);
       })
       .catch(() => {});
   }
@@ -61,6 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsPro(false);
       setCreditsUsed(0);
       setCreditsLimit(5);
+      setItemCount(0);
+      setItemLimit(10);
     }
   }, [user?.id]);
 
@@ -101,6 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPro,
       creditsUsed,
       creditsLimit,
+      itemCount,
+      itemLimit,
       refreshSubscription,
       async signIn(email, password) {
         const { error } = await supabase.auth.signInWithPassword({

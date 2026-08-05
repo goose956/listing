@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { getStripe, isStripeConfigured, FREE_AI_CREDITS } from '../lib/stripe.js';
+import { getStripe, isStripeConfigured, FREE_AI_CREDITS, FREE_ITEM_LIMIT } from '../lib/stripe.js';
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin.js';
 
 export const stripeRouter = Router();
@@ -41,11 +41,18 @@ stripeRouter.get('/status', async (req, res) => {
   const status = profile?.subscription_status ?? 'free';
   const isPro = status === 'active' || status === 'trialing';
 
+  const { count: itemCount } = await getSupabaseAdmin()
+    .from('items')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
   return res.json({
     status,
     isPro,
     creditsUsed: profile?.ai_credits_used ?? 0,
     creditsLimit: isPro ? null : FREE_AI_CREDITS,
+    itemCount: itemCount ?? 0,
+    itemLimit: isPro ? null : FREE_ITEM_LIMIT,
     periodEnd: profile?.subscription_period_end ?? null,
     stripeConfigured: isStripeConfigured(),
   });

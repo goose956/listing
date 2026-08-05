@@ -16,3 +16,4 @@ export function isStripeConfigured(): boolean {
 }
 
 export const FREE_AI_CREDITS = 5;
+export const FREE_ITEM_LIMIT = 10;

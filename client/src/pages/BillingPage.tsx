@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CreditCard, Sparkles, Zap } from 'lucide-react';
+import { CreditCard, Package, Sparkles, Zap } from 'lucide-react';
 import { fetchSubscriptionStatus, openBillingPortal, startCheckout, type SubscriptionStatus } from '../lib/stripe';
 import { Alert, Button, Card, LoadingScreen, Spinner } from '../components/ui';
 import { formatDate } from '../lib/format';
@@ -65,6 +65,11 @@ export function BillingPage() {
   const creditPct = status?.creditsLimit
     ? Math.min(100, (status.creditsUsed / status.creditsLimit) * 100)
     : 0;
+
+  const itemPct = status?.itemLimit
+    ? Math.min(100, ((status.itemCount ?? 0) / status.itemLimit) * 100)
+    : 0;
+  const itemsRemaining = status?.itemLimit != null ? Math.max(0, status.itemLimit - (status.itemCount ?? 0)) : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
@@ -156,6 +161,33 @@ export function BillingPage() {
         </Card>
       )}
 
+      {/* Item slots (free users only) */}
+      {!status?.isPro && (
+        <Card>
+          <div className="mb-3 flex items-center gap-2">
+            <Package size={16} className="text-teal-600" />
+            <h2 className="text-sm font-semibold text-slate-800">Inventory slots</h2>
+          </div>
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="text-slate-500">Items in inventory</span>
+            <span className={`font-semibold ${itemsRemaining === 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+              {status?.itemCount ?? 0} / {status?.itemLimit ?? 10}
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-slate-100">
+            <div
+              className={`h-2 rounded-full transition-all ${itemPct >= 100 ? 'bg-rose-500' : itemPct >= 70 ? 'bg-amber-400' : 'bg-teal-500'}`}
+              style={{ width: `${itemPct}%` }}
+            />
+          </div>
+          {itemsRemaining === 0 ? (
+            <p className="mt-2 text-xs text-rose-600">No slots left — upgrade to Pro for unlimited inventory.</p>
+          ) : (
+            <p className="mt-2 text-xs text-slate-400">{itemsRemaining} slot{itemsRemaining !== 1 ? 's' : ''} remaining. Pro gives you unlimited.</p>
+          )}
+        </Card>
+      )}
+
       {/* Upgrade / manage */}
       <Card>
         {status?.isPro ? (
@@ -180,6 +212,7 @@ export function BillingPage() {
             </div>
             <ul className="mb-4 mt-2 space-y-1.5 text-sm text-slate-600">
               {[
+                'Unlimited inventory items',
                 'Unlimited AI listing generation',
                 'Unlimited AI item analysis',
                 'Priority support',

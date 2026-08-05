@@ -23,6 +23,8 @@ export interface SubscriptionStatus {
   isPro: boolean;
   creditsUsed: number;
   creditsLimit: number | null;
+  itemCount: number;
+  itemLimit: number | null;
   periodEnd: string | null;
   stripeConfigured: boolean;
 }

@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Camera, ImagePlus, Save, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { analyseImages, enhanceImage } from '../lib/api';
@@ -30,7 +30,8 @@ interface LocalPhoto {
 }
 
 export function AddItemPage() {
-  const { user } = useAuth();
+  const { user, isPro, itemCount, itemLimit } = useAuth();
+  const atItemLimit = !isPro && itemLimit != null && itemCount >= itemLimit;
   const navigate = useNavigate();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -217,6 +218,10 @@ export function AddItemPage() {
 
   async function handleSaveManual() {
     if (!user) return;
+    if (atItemLimit) {
+      setError(`You've reached the ${itemLimit}-item limit on the free plan. Upgrade to Pro for unlimited items.`);
+      return;
+    }
     if (!photos.length) {
       setError('Add at least one photo');
       return;
@@ -254,6 +259,13 @@ export function AddItemPage() {
         title="Add new item"
         subtitle="Photograph at the boot sale, then fill details"
       />
+
+      {atItemLimit && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span>You've used all {itemLimit} free item slots. Upgrade to Pro for unlimited items.</span>
+          <Link to="/billing" className="shrink-0 font-semibold underline underline-offset-2">Upgrade</Link>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4">
