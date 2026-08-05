@@ -3,9 +3,11 @@ export interface QueueItem {
   scheduled_at: string;
   item_id: string;
   item_number: string;
+  platform: string;
   title: string | null;
   description: string | null;
   price: number | null;
+  platform_prices: Record<string, number>;
   brand: string | null;
   size: string | null;
   colour: string | null;

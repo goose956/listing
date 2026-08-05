@@ -76,10 +76,11 @@ async function fillDepopForm(item: QueueItem): Promise<Record<string, boolean>> 
     else console.warn('[LA] Depop: Description field not found — tried:', SELECTORS.description);
   }
 
-  if (item.price != null) {
+  const priceToUse = item.platform_prices?.depop ?? item.price;
+  if (priceToUse != null) {
     const el = findFirst(SELECTORS.price) as HTMLInputElement | null;
     status.price = !!el;
-    if (el) setNativeValue(el, String(item.price));
+    if (el) setNativeValue(el, String(priceToUse));
     else console.warn('[LA] Depop: Price field not found — tried:', SELECTORS.price);
   }
 

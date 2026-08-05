@@ -163,7 +163,9 @@ function buildItemCard(item: QueueItem, token: string, isOnSellPage: boolean): H
     ? `<img class="item-thumb" src="${primaryImage.url}" alt="" loading="lazy">`
     : `<div class="item-thumb-placeholder"></div>`;
 
-  const detailParts = [item.brand, item.size, item.price != null ? `£${item.price}` : null].filter(Boolean);
+  // Use platform-specific price if set, fall back to the default price
+  const displayPrice = item.platform_prices?.[activePlatform.id] ?? item.price;
+  const detailParts = [item.brand, item.size, displayPrice != null ? `£${displayPrice}` : null].filter(Boolean);
   const timeLabel = formatScheduledAt(item.scheduled_at, isDue);
   const btnLabel = isOnSellPage
     ? `Fill ${activePlatform.label} form`

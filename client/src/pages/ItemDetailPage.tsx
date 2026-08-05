@@ -23,6 +23,7 @@ import {
   markItemSold,
   scheduleListing,
   updateItem,
+  updatePlatformPrices,
 } from '../lib/items';
 import {
   CATEGORIES,
@@ -68,9 +69,12 @@ export function ItemDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [scheduleAt, setScheduleAt] = useState('');
+  const [schedulePlatform, setSchedulePlatform] = useState('vinted');
   const [salePrice, setSalePrice] = useState('');
   const [emailing, setEmailing] = useState(false);
   const [markingListed, setMarkingListed] = useState(false);
+  const [platformPrices, setPlatformPrices] = useState<Record<string, string>>({});
+  const [savingPrices, setSavingPrices] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -87,6 +91,11 @@ export function ItemDetailPage() {
         setItem(data);
         setForm(itemToForm(data));
         setSalePrice(data.sale_price != null ? String(data.sale_price) : '');
+        const pp = data.platform_prices ?? {};
+        setPlatformPrices({
+          vinted: pp.vinted != null ? String(pp.vinted) : '',
+          depop: pp.depop != null ? String(pp.depop) : '',
+        });
         if (searchParams.get('fresh') === '1') {
           // Auto-run listing generation for fresh AI items
           // user can still edit
@@ -208,15 +217,32 @@ export function ItemDetailPage() {
   async function handleSchedule() {
     if (!user || !id || !scheduleAt) return;
     try {
-      await scheduleListing(user.id, id, new Date(scheduleAt).toISOString());
+      await scheduleListing(user.id, id, new Date(scheduleAt).toISOString(), undefined, schedulePlatform);
       const refreshed = await fetchItem(id);
       if (refreshed) {
         setItem(refreshed);
         setForm(itemToForm(refreshed));
       }
-      flash('Added to listing queue');
+      flash(`Added to ${schedulePlatform} queue`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Schedule failed');
+    }
+  }
+
+  async function handleSavePlatformPrices() {
+    if (!id) return;
+    setSavingPrices(true);
+    try {
+      const prices: Record<string, number | null> = {
+        vinted: platformPrices.vinted ? parseFloat(platformPrices.vinted) : null,
+        depop: platformPrices.depop ? parseFloat(platformPrices.depop) : null,
+      };
+      await updatePlatformPrices(id, prices);
+      flash('Platform prices saved');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingPrices(false);
     }
   }
 
@@ -609,12 +635,22 @@ export function ItemDetailPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 text-sm font-semibold text-slate-800">Schedule listing</h2>
-          <Input
-            label="When to list"
-            type="datetime-local"
-            value={scheduleAt}
-            onChange={(e) => setScheduleAt(e.target.value)}
-          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="When to list"
+              type="datetime-local"
+              value={scheduleAt}
+              onChange={(e) => setScheduleAt(e.target.value)}
+            />
+            <Select
+              label="Platform"
+              value={schedulePlatform}
+              onChange={(e) => setSchedulePlatform(e.target.value)}
+            >
+              <option value="vinted">Vinted</option>
+              <option value="depop">Depop</option>
+            </Select>
+          </div>
           <Button
             type="button"
             className="mt-3"
@@ -661,6 +697,41 @@ export function ItemDetailPage() {
           )}
         </Card>
       </div>
+
+      {/* Per-platform prices */}
+      <Card>
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">Platform prices</h2>
+        <p className="mb-3 text-xs text-slate-400">
+          Set different prices per marketplace. The extension will use the matching price when filling forms.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input
+            label="Vinted (£)"
+            inputMode="decimal"
+            value={platformPrices.vinted ?? ''}
+            onChange={(e) => setPlatformPrices((p) => ({ ...p, vinted: e.target.value }))}
+            placeholder={form?.list_price ?? undefined}
+          />
+          <Input
+            label="Depop (£)"
+            inputMode="decimal"
+            value={platformPrices.depop ?? ''}
+            onChange={(e) => setPlatformPrices((p) => ({ ...p, depop: e.target.value }))}
+            placeholder={form?.list_price ?? undefined}
+          />
+        </div>
+        <Button
+          type="button"
+          className="mt-3"
+          variant="secondary"
+          size="sm"
+          disabled={savingPrices}
+          onClick={handleSavePlatformPrices}
+        >
+          {savingPrices ? <Spinner className="border-t-white" /> : null}
+          Save platform prices
+        </Button>
+      </Card>
     </div>
   );
 }

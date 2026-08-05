@@ -55,6 +55,7 @@ export interface Item {
   date_added: string;
   created_at: string;
   updated_at: string;
+  platform_prices: Record<string, number>;
   // from view / joins
   profit?: number | null;
   primary_image_url?: string | null;
@@ -67,6 +68,7 @@ export interface ListingQueueEntry {
   user_id: string;
   item_id: string;
   scheduled_at: string;
+  platform: string;
   status: QueueStatus;
   completed_at: string | null;
   notes: string | null;

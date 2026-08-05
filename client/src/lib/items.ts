@@ -287,7 +287,8 @@ export async function scheduleListing(
   userId: string,
   itemId: string,
   scheduledAt: string,
-  notes?: string
+  notes?: string,
+  platform = 'vinted'
 ): Promise<ListingQueueEntry> {
   const { data, error } = await supabase
     .from('listing_queue')
@@ -296,6 +297,7 @@ export async function scheduleListing(
         user_id: userId,
         item_id: itemId,
         scheduled_at: scheduledAt,
+        platform,
         status: 'scheduled',
         notes: notes || null,
         completed_at: null,
@@ -379,4 +381,19 @@ export async function markItemSold(
     .single();
   if (error) throw error;
   return normalizeItem(data);
+}
+
+export async function updatePlatformPrices(
+  itemId: string,
+  prices: Record<string, number | null>
+): Promise<void> {
+  const cleaned: Record<string, number> = {};
+  for (const [k, v] of Object.entries(prices)) {
+    if (v != null && !isNaN(v)) cleaned[k] = v;
+  }
+  const { error } = await supabase
+    .from('items')
+    .update({ platform_prices: cleaned })
+    .eq('id', itemId);
+  if (error) throw error;
 }

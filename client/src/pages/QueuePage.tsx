@@ -235,6 +235,11 @@ export function QueuePage() {
                               {item?.item_number || 'Item'}
                             </Link>
                             {isDue && <Badge tone="amber">Due</Badge>}
+                            {entry.platform && entry.platform !== 'vinted' && (
+                              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600">
+                                {entry.platform}
+                              </span>
+                            )}
                             <span className="text-xs text-slate-400">
                               {formatDateTime(entry.scheduled_at)} ·{' '}
                               {formatRelative(entry.scheduled_at)}

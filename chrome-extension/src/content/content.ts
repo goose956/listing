@@ -104,10 +104,11 @@ async function fillVintedForm(item: QueueItem): Promise<Record<string, boolean>>
     else console.warn('[LA] Description field not found — tried:', SELECTORS.description);
   }
 
-  if (item.price != null) {
+  const priceToUse = item.platform_prices?.vinted ?? item.price;
+  if (priceToUse != null) {
     const el = findFirst(SELECTORS.price) as HTMLInputElement | null;
     status.price = !!el;
-    if (el) setReactInputValue(el, String(item.price));
+    if (el) setReactInputValue(el, String(priceToUse));
     else console.warn('[LA] Price field not found — tried:', SELECTORS.price);
   }
 
