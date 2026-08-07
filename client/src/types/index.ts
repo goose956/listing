@@ -56,6 +56,11 @@ export interface Item {
   created_at: string;
   updated_at: string;
   platform_prices: Record<string, number>;
+  // eBay listing fields
+  ebay_listing_id?: string | null;
+  ebay_offer_id?: string | null;
+  ebay_listing_url?: string | null;
+  ebay_marketplace?: string | null;
   // from view / joins
   profit?: number | null;
   primary_image_url?: string | null;

@@ -10,11 +10,19 @@ import {
   Download,
   ExternalLink,
   Mail,
+  ShoppingBag,
   Sparkles,
   Trash2,
+  XCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { generateListing, sendListingsEmail } from '../lib/api';
+import {
+  type EbayStatus,
+  createEbayListing,
+  delistEbayItem,
+  getEbayStatus,
+} from '../lib/ebay';
 import {
   deleteItem,
   fetchItem,
@@ -77,6 +85,15 @@ export function ItemDetailPage() {
   const [platformPrices, setPlatformPrices] = useState<Record<string, string>>({});
   const [savingPrices, setSavingPrices] = useState(false);
 
+  // eBay listing state
+  const [ebayStatus, setEbayStatus] = useState<EbayStatus | null>(null);
+  const [ebayListingType, setEbayListingType] = useState<'FIXED_PRICE' | 'AUCTION'>('FIXED_PRICE');
+  const [ebayPrice, setEbayPrice] = useState('');
+  const [ebayBuyItNow, setEbayBuyItNow] = useState('');
+  const [ebayDays, setEbayDays] = useState('7');
+  const [ebayListing, setEbayListing] = useState(false);
+  const [ebayDelisting, setEbayDelisting] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -97,6 +114,10 @@ export function ItemDetailPage() {
           vinted: pp.vinted != null ? String(pp.vinted) : '',
           depop: pp.depop != null ? String(pp.depop) : '',
         });
+        // Pre-fill eBay price from list_price
+        if (data.list_price != null) setEbayPrice(String(data.list_price));
+        // Fetch eBay connection status
+        getEbayStatus().then(setEbayStatus).catch(() => null);
         if (searchParams.get('fresh') === '1') {
           // Auto-run listing generation for fresh AI items
           // user can still edit
@@ -244,6 +265,45 @@ export function ItemDetailPage() {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSavingPrices(false);
+    }
+  }
+
+  async function handleEbayList() {
+    if (!id || !ebayPrice) return;
+    setEbayListing(true);
+    setError(null);
+    try {
+      const result = await createEbayListing({
+        itemId: id,
+        listingType: ebayListingType,
+        startPrice: parseFloat(ebayPrice),
+        buyItNowPrice: ebayBuyItNow ? parseFloat(ebayBuyItNow) : undefined,
+        auctionDurationDays: ebayListingType === 'AUCTION' ? parseInt(ebayDays, 10) : undefined,
+      });
+      // Refresh item to get new ebay_listing_id
+      const updated = await fetchItem(id);
+      if (updated) { setItem(updated); setForm(itemToForm(updated)); }
+      flash(`Listed on eBay! Listing ID: ${result.listingId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'eBay listing failed');
+    } finally {
+      setEbayListing(false);
+    }
+  }
+
+  async function handleEbayDelist() {
+    if (!item?.ebay_listing_id) return;
+    setEbayDelisting(true);
+    setError(null);
+    try {
+      await delistEbayItem(item.ebay_listing_id);
+      const updated = await fetchItem(id!);
+      if (updated) { setItem(updated); setForm(itemToForm(updated)); }
+      flash('eBay listing ended');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delist');
+    } finally {
+      setEbayDelisting(false);
     }
   }
 
@@ -739,6 +799,137 @@ export function ItemDetailPage() {
           Save platform prices
         </Button>
       </Card>
+
+      {/* eBay listing */}
+      {ebayStatus?.connected && (
+        <Card>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <ShoppingBag size={16} className="text-teal-600" />
+              List on eBay
+            </h2>
+            {item?.ebay_listing_id && (
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                Live ✓
+              </span>
+            )}
+          </div>
+
+          {item?.ebay_listing_id ? (
+            /* Already listed */
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500">
+                This item has an active eBay listing.
+              </p>
+              {item.ebay_listing_url && (
+                <a
+                  href={item.ebay_listing_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-teal-700 hover:underline"
+                >
+                  <ExternalLink size={12} />
+                  View on eBay — #{item.ebay_listing_id}
+                </a>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={ebayDelisting}
+                  onClick={handleEbayDelist}
+                >
+                  {ebayDelisting ? <Spinner className="border-t-slate-600" /> : <XCircle size={14} />}
+                  End listing
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Create listing */
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEbayListingType('FIXED_PRICE')}
+                  className={`flex-1 rounded border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    ebayListingType === 'FIXED_PRICE'
+                      ? 'border-teal-600 bg-teal-50 text-teal-700'
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  Fixed price
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEbayListingType('AUCTION')}
+                  className={`flex-1 rounded border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    ebayListingType === 'AUCTION'
+                      ? 'border-teal-600 bg-teal-50 text-teal-700'
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  Auction
+                </button>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input
+                  label={ebayListingType === 'FIXED_PRICE' ? 'Price (£)' : 'Start price (£)'}
+                  inputMode="decimal"
+                  value={ebayPrice}
+                  onChange={(e) => setEbayPrice(e.target.value)}
+                  placeholder="0.00"
+                />
+                {ebayListingType === 'AUCTION' && (
+                  <>
+                    <Input
+                      label="Buy It Now price (optional)"
+                      inputMode="decimal"
+                      value={ebayBuyItNow}
+                      onChange={(e) => setEbayBuyItNow(e.target.value)}
+                      placeholder="0.00"
+                    />
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-slate-600">Duration</label>
+                      <select
+                        value={ebayDays}
+                        onChange={(e) => setEbayDays(e.target.value)}
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      >
+                        <option value="3">3 days</option>
+                        <option value="5">5 days</option>
+                        <option value="7">7 days</option>
+                        <option value="10">10 days</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-400">
+                Marketplace: <strong>{ebayStatus.marketplace === 'EBAY_GB' ? 'eBay UK' : 'eBay US'}</strong>
+                {!ebayStatus.fulfillmentPolicyId && (
+                  <span className="ml-2 text-amber-600">
+                    · Set shipping policy in Settings first
+                  </span>
+                )}
+              </p>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={ebayListing || !ebayPrice}
+                onClick={handleEbayList}
+              >
+                {ebayListing ? <Spinner className="border-t-teal-600" /> : <ShoppingBag size={14} />}
+                Publish to eBay
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

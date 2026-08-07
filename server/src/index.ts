@@ -11,6 +11,7 @@ import { emailRouter } from './routes/email.js';
 import { extensionRouter } from './routes/extension.js';
 import { adminRouter } from './routes/admin.js';
 import { stripeRouter, stripeWebhookHandler } from './routes/stripe.js';
+import { ebayRouter } from './routes/ebay.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,6 +44,7 @@ app.use('/api/email', emailRouter);
 app.use('/api/extension', extensionRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/stripe', stripeRouter);
+app.use('/api/ebay', ebayRouter);
 
 // ---- Serve built client (single-dyno deploy) ----
 // If client/dist exists, serve it as static files and fall back to index.html
