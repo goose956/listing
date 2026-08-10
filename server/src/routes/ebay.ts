@@ -616,19 +616,35 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     try {
       const offerData = await api.post('/sell/inventory/v1/offer', offerBody);
       offerId = offerData.offerId;
+      console.log(`[eBay] created new offer ${offerId} with categoryId=${categoryId}`);
     } catch (offerErr: any) {
       const offerDetail = offerErr?.response?.data ?? '';
       const offerParsed = typeof offerDetail === 'string'
         ? (() => { try { return JSON.parse(offerDetail); } catch { return {}; } })()
         : offerDetail;
-      // If offer already exists, extract its ID and update it with current settings
       const existingId = offerParsed?.errors?.[0]?.parameters?.find(
         (p: any) => p.name === 'offerId'
       )?.value;
       if (existingId) {
-        offerId = existingId;
-        // Update the stale offer so it has the current merchantLocationKey etc.
-        await api.put(`/sell/inventory/v1/offer/${existingId}`, offerBody);
+        // Check if the existing offer has a different categoryId — if so, delete and recreate
+        try {
+          const existingOffer = await api.get(`/sell/inventory/v1/offer/${existingId}`);
+          if (existingOffer?.categoryId && existingOffer.categoryId !== categoryId) {
+            console.log(`[eBay] offer ${existingId} has old categoryId ${existingOffer.categoryId}, deleting to recreate with ${categoryId}`);
+            await api.delete(`/sell/inventory/v1/offer/${existingId}`);
+            const fresh = await api.post('/sell/inventory/v1/offer', offerBody);
+            offerId = fresh.offerId;
+            console.log(`[eBay] created fresh offer ${offerId} with categoryId=${categoryId}`);
+          } else {
+            offerId = existingId;
+            await api.put(`/sell/inventory/v1/offer/${existingId}`, offerBody);
+            console.log(`[eBay] updated existing offer ${offerId} with categoryId=${categoryId}`);
+          }
+        } catch {
+          // If GET fails, just try to update in place
+          offerId = existingId;
+          await api.put(`/sell/inventory/v1/offer/${existingId}`, offerBody);
+        }
       } else {
         throw offerErr;
       }
