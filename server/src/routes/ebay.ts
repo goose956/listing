@@ -427,7 +427,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
 
     // ── Step 1: Create/update inventory item ──────────────────────────────────
     await api.put(`/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
-      condition: conditionIdToEnum(conditionId),
+      condition: conditionIdToEnum(conditionId, categoryId),
       conditionDescription: item.condition_notes ?? undefined,
       product: {
         title: item.title,
@@ -624,18 +624,21 @@ ebayRouter.delete('/reset/:itemId', async (req: Request, res: Response) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function conditionIdToEnum(conditionId: number): string {
+function conditionIdToEnum(conditionId: number, categoryId?: string): string {
+  // Clothing/fashion categories only accept NEW, LIKE_NEW, USED_EXCELLENT
+  const clothingCategories = new Set(['11450', '15724', '1059', '3034', '3035', '169291', '4251', '63889', '93427']);
+  const isClothing = !!categoryId && clothingCategories.has(categoryId);
   const map: Record<number, string> = {
     1000: 'NEW',
     1500: 'LIKE_NEW',
     2000: 'LIKE_NEW',
     2500: 'LIKE_NEW',
     3000: 'USED_EXCELLENT',
-    4000: 'USED_GOOD',
-    5000: 'USED_ACCEPTABLE',
-    6000: 'FOR_PARTS_OR_NOT_WORKING',
+    4000: isClothing ? 'USED_EXCELLENT' : 'USED_GOOD',
+    5000: isClothing ? 'USED_EXCELLENT' : 'USED_ACCEPTABLE',
+    6000: isClothing ? 'USED_EXCELLENT' : 'FOR_PARTS_OR_NOT_WORKING',
   };
-  return map[conditionId] ?? 'USED_GOOD';
+  return map[conditionId] ?? (isClothing ? 'USED_EXCELLENT' : 'USED_GOOD');
 }
 
 function buildAspects(item: Record<string, any>): Record<string, string[]> {
