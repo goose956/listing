@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
 export function cn(...parts: Array<string | false | null | undefined>) {
@@ -324,6 +324,18 @@ export function Modal({
         )}
         {children}
       </div>
+    </div>,
+    document.body
+  );
+}
+
+// Floating toast — renders fixed bottom-right, visible regardless of scroll position
+export function Toast({ message }: { message: string | null }) {
+  if (!message) return null;
+  return createPortal(
+    <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-bottom-2">
+      <Check size={15} className="shrink-0 text-teal-400" />
+      {message}
     </div>,
     document.body
   );

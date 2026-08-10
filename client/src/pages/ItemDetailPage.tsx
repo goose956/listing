@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   CalendarPlus,
-  Check,
   CheckCheck,
   Copy,
   Download,
@@ -59,6 +58,7 @@ import {
   Select,
   Spinner,
   Textarea,
+  Toast,
   statusTone,
 } from '../components/ui';
 import { ImageViewer } from '../components/ImageViewer';
@@ -398,15 +398,7 @@ export function ItemDetailPage() {
         </div>
       </div>
 
-      {toast && (
-        <div className="mb-3">
-          <Alert tone="success">
-            <span className="inline-flex items-center gap-1">
-              <Check size={14} /> {toast}
-            </span>
-          </Alert>
-        </div>
-      )}
+      <Toast message={toast} />
       {error && (
         <div className="mb-3">
           <Alert>{error}</Alert>

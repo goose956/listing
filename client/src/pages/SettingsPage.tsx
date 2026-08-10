@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, KeyRound, Link, Link2Off, Mail, RefreshCw, Save, ShoppingBag, Trash2 } from 'lucide-react';
+import { KeyRound, Link, Link2Off, Mail, RefreshCw, Save, ShoppingBag, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { checkApiHealth } from '../lib/api';
 import { clearOpenAIKey, fetchSettings, saveSettings, type UserSettingsSafe } from '../lib/settings';
@@ -11,6 +11,7 @@ import {
   LoadingScreen,
   PageHeader,
   Spinner,
+  Toast,
 } from '../components/ui';
 import {
   type EbayPolicies,
@@ -232,15 +233,7 @@ export function SettingsPage() {
     <div>
       <PageHeader title="Settings" subtitle="Manage API keys and preferences" />
 
-      {toast && (
-        <div className="mb-4">
-          <Alert tone="success">
-            <span className="inline-flex items-center gap-1">
-              <Check size={14} /> {toast}
-            </span>
-          </Alert>
-        </div>
-      )}
+      <Toast message={toast} />
       {error && (
         <div className="mb-4">
           <Alert>{error}</Alert>
