@@ -96,6 +96,12 @@ export const EBAY_GB_CATEGORIES = [
   { label: "Sunglasses",                          id: '45246' },
   { label: "Hats",                                id: '45230' },
   { label: "Belts",                               id: '3003'  },
+  // Fragrance & Beauty
+  { label: "Women's Fragrances",                  id: '11848' },
+  { label: "Men's Fragrances & Aftershaves",      id: '29585' },
+  { label: "Unisex Fragrances",                   id: '112661'},
+  { label: "Home Fragrance",                      id: '20552' },
+  { label: "Essential Oils & Fragrances",         id: '41268' },
   // Men's Clothing
   { label: "Men's T-Shirts",                      id: '15687' },
   { label: "Men's Casual Shirts",                 id: '57990' },

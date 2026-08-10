@@ -89,6 +89,7 @@ export function ItemDetailPage() {
   const [markingListed, setMarkingListed] = useState(false);
   const [platformPrices, setPlatformPrices] = useState<Record<string, string>>({});
   const [savingPrices, setSavingPrices] = useState(false);
+  const [ebayCategoryTouched, setEbayCategoryTouched] = useState(false);
 
   // eBay listing state
   const [ebayStatus, setEbayStatus] = useState<EbayStatus | null>(null);
@@ -125,6 +126,9 @@ export function ItemDetailPage() {
           vinted: pp.vinted != null ? String(pp.vinted) : '',
           depop: pp.depop != null ? String(pp.depop) : '',
         });
+        if (!ebayCategoryTouched) {
+          setEbayCategoryId(suggestEbayCategoryId(itemToForm(data)));
+        }
         // Pre-fill eBay price from list_price
         if (data.list_price != null) setEbayPrice(String(data.list_price));
         // Fetch eBay connection status
@@ -951,6 +955,7 @@ export function ItemDetailPage() {
                 <select
                   value={ebayCategoryId}
                   onChange={(e) => {
+                    setEbayCategoryTouched(true);
                     setEbayCategoryId(e.target.value);
                     setEbayMissingAspects([]);
                   }}
@@ -1117,4 +1122,17 @@ function matchAspectValue(values: string[], candidates: string[]): string {
     if (match) return match;
   }
   return '';
+}
+
+function suggestEbayCategoryId(form: ItemFormData): string {
+  const haystack = [form.product_type, form.title, form.category, form.description, form.tags]
+    .join(' ')
+    .toLowerCase();
+
+  if (haystack.includes('aftershave') || haystack.includes('cologne')) return '29585';
+  if (haystack.includes('perfume') || haystack.includes('fragrance') || haystack.includes('eau de parfum') || haystack.includes('eau de toilette')) return '112661';
+  if (haystack.includes('candle') || haystack.includes('diffuser')) return '20552';
+  if (haystack.includes('essential oil')) return '41268';
+
+  return EBAY_GB_CATEGORIES[0].id;
 }
