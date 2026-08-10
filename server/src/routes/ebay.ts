@@ -104,7 +104,7 @@ ebayRouter.get('/status', async (req: Request, res: Response) => {
 
   const { data: conn } = await getSupabaseAdmin()
     .from('user_ebay_connections')
-    .select('ebay_marketplace, access_token_expires_at, fulfillment_policy_id, payment_policy_id, return_policy_id, merchant_location_key')
+    .select('ebay_marketplace, access_token_expires_at, fulfillment_policy_id, payment_policy_id, return_policy_id, merchant_location_key, seller_postcode')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -118,6 +118,7 @@ ebayRouter.get('/status', async (req: Request, res: Response) => {
     paymentPolicyId: conn.payment_policy_id,
     returnPolicyId: conn.return_policy_id,
     merchantLocationKey: conn.merchant_location_key,
+    sellerPostcode: conn.seller_postcode,
   });
 });
 
@@ -157,12 +158,13 @@ ebayRouter.post('/save-settings', async (req: Request, res: Response) => {
   const userId = await resolveUserId(req.headers.authorization);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { fulfillmentPolicyId, paymentPolicyId, returnPolicyId, merchantLocationKey, marketplace } = req.body as {
+  const { fulfillmentPolicyId, paymentPolicyId, returnPolicyId, merchantLocationKey, marketplace, sellerPostcode } = req.body as {
     fulfillmentPolicyId?: string;
     paymentPolicyId?: string;
     returnPolicyId?: string;
     merchantLocationKey?: string;
     marketplace?: string;
+    sellerPostcode?: string;
   };
 
   const { error } = await getSupabaseAdmin()
@@ -173,6 +175,7 @@ ebayRouter.post('/save-settings', async (req: Request, res: Response) => {
       return_policy_id: returnPolicyId ?? null,
       merchant_location_key: merchantLocationKey ?? null,
       ebay_marketplace: marketplace ?? 'EBAY_GB',
+      seller_postcode: sellerPostcode ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId);
@@ -192,7 +195,7 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
 
     const { data: conn } = await getSupabaseAdmin()
       .from('user_ebay_connections')
-      .select('ebay_marketplace')
+      .select('ebay_marketplace, seller_postcode')
       .eq('user_id', userId)
       .single();
 
@@ -285,19 +288,19 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
 
     // Merchant location (required for Item.Country)
     const locationKey = 'la-default-location';
+    const postcode = conn?.seller_postcode || (isUK ? 'SW1A 1AA' : '10001');
     try {
       await api.post(`/sell/inventory/v1/location/${locationKey}`, {
         location: {
           address: {
-            addressLine1: '1 Default Street',
             city: isUK ? 'London' : 'New York',
-            stateOrProvince: isUK ? 'England' : 'NY',
-            postalCode: isUK ? 'SW1A 1AA' : '10001',
+            postalCode: postcode,
             country: isUK ? 'GB' : 'US',
+            ...(isUK ? {} : { stateOrProvince: 'NY' }),
           },
         },
         merchantLocationStatus: 'ENABLED',
-        name: 'Default Location',
+        name: 'My Location',
         locationType: 'WAREHOUSE',
       });
       results.merchantLocationKey = locationKey;
@@ -397,18 +400,19 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     if (!merchantLocationKey) {
       const isUK = marketplace === 'EBAY_GB';
       const locationKey = 'la-default-location';
+      const postcode = conn.seller_postcode || (isUK ? 'SW1A 1AA' : '10001');
       try {
         await api.post(`/sell/inventory/v1/location/${locationKey}`, {
           location: {
             address: {
               city: isUK ? 'London' : 'New York',
-              postalCode: isUK ? 'SW1A 1AA' : '10001',
+              postalCode: postcode,
               country: isUK ? 'GB' : 'US',
               ...(isUK ? {} : { stateOrProvince: 'NY' }),
             },
           },
           merchantLocationStatus: 'ENABLED',
-          name: 'Default Location',
+          name: 'My Location',
           locationType: 'WAREHOUSE',
         });
       } catch {

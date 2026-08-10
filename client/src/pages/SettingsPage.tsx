@@ -43,7 +43,7 @@ export function SettingsPage() {
   const [ebayFulfillment, setEbayFulfillment] = useState('');
   const [ebayPayment, setEbayPayment] = useState('');
   const [ebayReturn, setEbayReturn] = useState('');
-  const [ebayLocation, setEbayLocation] = useState('');
+  const [ebayPostcode, setEbayPostcode] = useState('');
   const [ebaySaving, setEbaySaving] = useState(false);
   const [ebayLoading, setEbayLoading] = useState(false);
 
@@ -72,7 +72,7 @@ export function SettingsPage() {
             setEbayFulfillment(ebay.fulfillmentPolicyId ?? '');
             setEbayPayment(ebay.paymentPolicyId ?? '');
             setEbayReturn(ebay.returnPolicyId ?? '');
-            setEbayLocation(ebay.merchantLocationKey ?? '');
+            setEbayPostcode(ebay.sellerPostcode ?? '');
             // Auto-load policies; on failure set empty object so text inputs render
             getEbayPolicies()
               .then(setEbayPolicies)
@@ -159,7 +159,7 @@ export function SettingsPage() {
         setEbayFulfillment(status.fulfillmentPolicyId ?? '');
         setEbayPayment(status.paymentPolicyId ?? '');
         setEbayReturn(status.returnPolicyId ?? '');
-        setEbayLocation(status.merchantLocationKey ?? '');
+        setEbayPostcode(status.sellerPostcode ?? '');
         flash(`Created ${Object.keys(results).length} policies`);
       } else if (errors.length === 0) {
         setError('No policies were created and no errors returned — your eBay token may have expired. Try disconnecting and reconnecting eBay.');
@@ -178,7 +178,7 @@ export function SettingsPage() {
         fulfillmentPolicyId: ebayFulfillment || undefined,
         paymentPolicyId: ebayPayment || undefined,
         returnPolicyId: ebayReturn || undefined,
-        merchantLocationKey: ebayLocation || undefined,
+        sellerPostcode: ebayPostcode || undefined,
         marketplace: ebayMarketplace,
       });
       // Refresh status
@@ -513,27 +513,17 @@ export function SettingsPage() {
                     )}
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Merchant Location Key</label>
-                    {ebayPolicies.locations.length > 0 ? (
-                      <select
-                        value={ebayLocation}
-                        onChange={(e) => setEbayLocation(e.target.value)}
-                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-                      >
-                        <option value="">— Select location —</option>
-                        {ebayPolicies.locations.map((l) => (
-                          <option key={l.merchantLocationKey} value={l.merchantLocationKey}>{l.name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={ebayLocation}
-                        onChange={(e) => setEbayLocation(e.target.value)}
-                        placeholder="e.g. la-default-location"
-                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-                      />
-                    )}
+                    <label className="mb-1 block text-xs text-slate-500">
+                      {ebayMarketplace === 'EBAY_GB' ? 'Your postcode' : 'Your ZIP code'}
+                      <span className="ml-1 text-slate-400">(used as seller location on listings)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={ebayPostcode}
+                      onChange={(e) => setEbayPostcode(e.target.value)}
+                      placeholder={ebayMarketplace === 'EBAY_GB' ? 'e.g. SW1A 1AA' : 'e.g. 10001'}
+                      className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                    />
                   </div>
                 </div>
               ) : (
