@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { CheckCircle, CheckCheck, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle, CheckCheck, RefreshCw, Trash2, XCircle, Eraser } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   fetchAdminStats,
@@ -8,6 +8,7 @@ import {
   fetchAdminConfig,
   fetchAdminErrors,
   resolveAdminError,
+  clearAdminErrors,
   deleteAdminUser,
   type AdminStats,
   type AdminUser,
@@ -15,7 +16,7 @@ import {
   type ErrorLog,
 } from '../lib/admin';
 import { Alert, Button, Card, LoadingScreen, Spinner } from '../components/ui';
-import { formatDate } from '../lib/format';
+import { formatDate, formatDateTime } from '../lib/format';
 
 type Tab = 'overview' | 'users' | 'config' | 'errors';
 
@@ -230,6 +231,7 @@ function ErrorsTab() {
   const [showResolved, setShowResolved] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   function load(resolved: boolean) {
     setLoading(true);
@@ -254,6 +256,19 @@ function ErrorsTab() {
     }
   }
 
+  async function handleClearAll() {
+    if (!confirm('Delete ALL error log entries? This cannot be undone.')) return;
+    setClearing(true);
+    try {
+      await clearAdminErrors(false);
+      setErrors([]);
+    } catch (e) {
+      setTabError(e instanceof Error ? e.message : 'Failed to clear');
+    } finally {
+      setClearing(false);
+    }
+  }
+
   function badgeClass(type: string) {
     if (type.startsWith('ebay')) return 'bg-blue-50 text-blue-700';
     if (type.startsWith('ai')) return 'bg-purple-50 text-purple-700';
@@ -271,9 +286,14 @@ function ErrorsTab() {
           />
           Show resolved
         </label>
-        <Button type="button" size="sm" variant="ghost" onClick={() => load(showResolved)}>
-          <RefreshCw size={13} /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" variant="ghost" onClick={() => load(showResolved)}>
+            <RefreshCw size={13} /> Refresh
+          </Button>
+          <Button type="button" size="sm" variant="ghost" disabled={clearing} onClick={handleClearAll}>
+            {clearing ? <Spinner /> : <Eraser size={13} />} Clear all
+          </Button>
+        </div>
       </div>
       {tabError && <Alert>{tabError}</Alert>}
       {loading ? (
@@ -298,7 +318,7 @@ function ErrorsTab() {
                   {errors.flatMap((e) => {
                     const rows = [
                       <tr key={e.id} className="group">
-                        <td className="whitespace-nowrap py-2 pr-4 text-xs text-slate-400">{formatDate(e.created_at)}</td>
+                        <td className="whitespace-nowrap py-2 pr-4 text-xs text-slate-400">{formatDateTime(e.created_at)}</td>
                         <td className="py-2 pr-4">
                           <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(e.error_type)}`}>
                             {e.error_type}

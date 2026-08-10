@@ -149,3 +149,16 @@ adminRouter.patch('/errors/:id/resolve', async (req, res) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+adminRouter.delete('/errors', async (req, res) => {
+  try {
+    const onlyResolved = req.query.resolved === 'true';
+    let query = getSupabaseAdmin().from('error_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (onlyResolved) query = query.eq('resolved', true);
+    const { error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});

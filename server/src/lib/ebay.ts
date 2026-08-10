@@ -278,13 +278,12 @@ export async function getValidConditionIds(marketplace: string, categoryId: stri
 }
 
 // Maps condition ID → Inventory API ConditionEnum string
-// Source: eBay Sell Inventory API ConditionEnum documentation
+// Note: 1500 (New without tags) intentionally omitted — LIKE_NEW resolves to condition 2750
+// which is rejected by clothing categories. Use NEW (1000) instead.
 export const CONDITION_ID_TO_ENUM: Record<number, string> = {
   1000: 'NEW',
-  1500: 'LIKE_NEW',
   2000: 'NEW_OTHER',
   2500: 'NEW_WITH_DEFECTS',
-  2750: 'MANUFACTURER_REFURBISHED',
   3000: 'USED_EXCELLENT',
   4000: 'USED_VERY_GOOD',
   5000: 'USED_GOOD',

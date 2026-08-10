@@ -88,3 +88,7 @@ export async function fetchAdminErrors(showResolved = false): Promise<ErrorLog[]
 export async function resolveAdminError(id: string): Promise<void> {
   await adminFetch(`/api/admin/errors/${id}/resolve`, { method: 'PATCH' });
 }
+
+export async function clearAdminErrors(onlyResolved = false): Promise<void> {
+  await adminFetch(`/api/admin/errors?resolved=${onlyResolved}`, { method: 'DELETE' });
+}
