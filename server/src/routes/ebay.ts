@@ -521,6 +521,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
   } catch (err: any) {
     const detail = err?.response?.data ?? err?.message ?? 'Unknown error';
     console.error('[eBay list] error:', detail);
+    await logError({ userId, type: 'ebay_list', message: typeof detail === 'string' ? detail : JSON.stringify(detail), detail });
     res.status(500).json({ error: 'Failed to create eBay listing', detail });
   }
 });

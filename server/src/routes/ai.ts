@@ -4,6 +4,7 @@ import { analyzeItemPrompt, listingGenerationPrompt } from '../services/prompts.
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin.js';
 import { createImageCollage } from '../lib/imageCollage.js';
 import { isStripeConfigured, FREE_AI_CREDITS } from '../lib/stripe.js';
+import { logError } from '../lib/errorLog.js';
 
 export const aiRouter = Router();
 
@@ -148,6 +149,7 @@ aiRouter.post('/analyse', async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'AI analysis failed';
     console.error('AI analyse error:', message);
+    await logError({ userId: null, type: 'ai_analyse', message });
     res.status(500).json({ error: message });
   }
 });
@@ -221,6 +223,7 @@ aiRouter.post('/listing', async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Listing generation failed';
     console.error('AI listing error:', message);
+    await logError({ userId: null, type: 'ai_listing', message });
     res.status(500).json({ error: message });
   }
 });

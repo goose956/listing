@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { CheckCircle, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle, CheckCheck, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   fetchAdminStats,
   fetchAdminUsers,
   fetchAdminConfig,
+  fetchAdminErrors,
+  resolveAdminError,
   deleteAdminUser,
   type AdminStats,
   type AdminUser,
   type ConfigKey,
+  type ErrorLog,
 } from '../lib/admin';
 import { Alert, Button, Card, LoadingScreen, Spinner } from '../components/ui';
 import { formatDate } from '../lib/format';
 
-type Tab = 'overview' | 'users' | 'config';
+type Tab = 'overview' | 'users' | 'config' | 'errors';
 
 export function AdminPage() {
   const { isAdmin, loading } = useAuth();
@@ -32,7 +35,7 @@ export function AdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
-        {(['overview', 'users', 'config'] as Tab[]).map((t) => (
+        {(['overview', 'users', 'config', 'errors'] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -51,6 +54,7 @@ export function AdminPage() {
       {tab === 'overview' && <OverviewTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'config' && <ConfigTab />}
+      {tab === 'errors' && <ErrorsTab />}
     </div>
   );
 }
@@ -215,5 +219,138 @@ function ConfigTab() {
         ))}
       </div>
     </Card>
+  );
+}
+
+// ── Errors ──────────────────────────────────────────────────────────────────
+function ErrorsTab() {
+  const [errors, setErrors] = useState<ErrorLog[]>([]);
+  const [tabError, setTabError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showResolved, setShowResolved] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [resolving, setResolving] = useState<string | null>(null);
+
+  function load(resolved: boolean) {
+    setLoading(true);
+    setTabError(null);
+    fetchAdminErrors(resolved)
+      .then(setErrors)
+      .catch((e) => setTabError(e instanceof Error ? e.message : 'Failed to load errors'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { load(showResolved); }, [showResolved]);
+
+  async function handleResolve(id: string) {
+    setResolving(id);
+    try {
+      await resolveAdminError(id);
+      setErrors((prev) => prev.filter((e) => e.id !== id));
+    } catch (e) {
+      setTabError(e instanceof Error ? e.message : 'Failed to resolve');
+    } finally {
+      setResolving(null);
+    }
+  }
+
+  function badgeClass(type: string) {
+    if (type.startsWith('ebay')) return 'bg-blue-50 text-blue-700';
+    if (type.startsWith('ai')) return 'bg-purple-50 text-purple-700';
+    return 'bg-slate-100 text-slate-600';
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={showResolved}
+            onChange={(e) => setShowResolved(e.target.checked)}
+          />
+          Show resolved
+        </label>
+        <Button type="button" size="sm" variant="ghost" onClick={() => load(showResolved)}>
+          <RefreshCw size={13} /> Refresh
+        </Button>
+      </div>
+      {tabError && <Alert>{tabError}</Alert>}
+      {loading ? (
+        <div className="flex justify-center p-8"><Spinner /></div>
+      ) : (
+        <Card>
+          {errors.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">No errors logged — all clear!</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-xs text-slate-500">
+                    <th className="pb-2 pr-4 font-medium">Time</th>
+                    <th className="pb-2 pr-4 font-medium">Type</th>
+                    <th className="pb-2 pr-4 font-medium">User</th>
+                    <th className="pb-2 pr-4 font-medium">Message</th>
+                    <th className="pb-2 font-medium" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {errors.flatMap((e) => {
+                    const rows = [
+                      <tr key={e.id} className="group">
+                        <td className="whitespace-nowrap py-2 pr-4 text-xs text-slate-400">{formatDate(e.created_at)}</td>
+                        <td className="py-2 pr-4">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(e.error_type)}`}>
+                            {e.error_type}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4 font-mono text-xs text-slate-500">
+                          {e.user_id ? e.user_id.slice(0, 8) + '…' : '—'}
+                        </td>
+                        <td className="max-w-xs py-2 pr-4 text-slate-700">
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(expanded === e.id ? null : e.id)}
+                            className="truncate text-left hover:underline"
+                          >
+                            {e.message}
+                          </button>
+                        </td>
+                        <td className="py-2 text-right">
+                          {!e.resolved && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              disabled={resolving === e.id}
+                              onClick={() => handleResolve(e.id)}
+                            >
+                              {resolving === e.id ? <Spinner /> : <CheckCheck size={13} />}
+                              Resolve
+                            </Button>
+                          )}
+                        </td>
+                      </tr>,
+                    ];
+                    if (expanded === e.id && e.detail) {
+                      rows.push(
+                        <tr key={`${e.id}-detail`}>
+                          <td colSpan={5} className="pb-3 pt-0">
+                            <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded bg-slate-50 p-3 text-xs text-slate-600">
+                              {JSON.stringify(e.detail, null, 2)}
+                            </pre>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return rows;
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
   );
 }

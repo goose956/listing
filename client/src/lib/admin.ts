@@ -69,3 +69,22 @@ export async function fetchAdminConfig(): Promise<ConfigKey[]> {
   const data = await adminFetch<{ keys: ConfigKey[] }>('/api/admin/config');
   return data.keys;
 }
+
+export interface ErrorLog {
+  id: string;
+  user_id: string | null;
+  error_type: string;
+  message: string;
+  detail: unknown;
+  resolved: boolean;
+  created_at: string;
+}
+
+export async function fetchAdminErrors(showResolved = false): Promise<ErrorLog[]> {
+  const data = await adminFetch<{ errors: ErrorLog[] }>(`/api/admin/errors?resolved=${showResolved}`);
+  return data.errors;
+}
+
+export async function resolveAdminError(id: string): Promise<void> {
+  await adminFetch(`/api/admin/errors/${id}/resolve`, { method: 'PATCH' });
+}

@@ -118,3 +118,34 @@ adminRouter.get('/config', (_req, res) => {
   ];
   res.json({ keys });
 });
+
+// ── Error log ─────────────────────────────────────────────────────────────────
+adminRouter.get('/errors', async (req, res) => {
+  try {
+    const showResolved = req.query.resolved === 'true';
+    let query = getSupabaseAdmin()
+      .from('error_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (!showResolved) query = query.eq('resolved', false);
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ errors: data ?? [] });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+adminRouter.patch('/errors/:id/resolve', async (req, res) => {
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('error_logs')
+      .update({ resolved: true })
+      .eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
