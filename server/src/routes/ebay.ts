@@ -590,6 +590,18 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
       });
     }
 
+    const listingTitle = buildListingTitle(item);
+    if (!listingTitle) {
+      return res.status(400).json({
+        error: 'Missing eBay listing title',
+        detail: 'Add a title or enough item details to generate one before publishing to eBay.',
+      });
+    }
+
+    const listingDescription = typeof item.description === 'string' && item.description.trim()
+      ? item.description.trim()
+      : listingTitle;
+
     // Ask eBay which condition IDs are valid for this category, then pick the best match.
     // Falls back to the full retry chain if the metadata call fails.
     const validIds = await getValidConditionIds(marketplace, categoryId);
@@ -616,8 +628,8 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
           condition: cond,
           conditionDescription: item.condition_notes ?? undefined,
           product: {
-            title: item.title,
-            description: item.description ?? item.title,
+            title: listingTitle,
+            description: listingDescription,
             imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
             aspects: productAspects,
           },
@@ -651,7 +663,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
       format: listingType,
       availableQuantity: 1,
       categoryId,
-      listingDescription: item.description ?? item.title,
+      listingDescription,
       listingPolicies: {
         fulfillmentPolicyId,
         ...(conn.payment_policy_id ? { paymentPolicyId: conn.payment_policy_id } : {}),
@@ -870,6 +882,22 @@ function normalizeAspectValue(value: unknown): string[] {
     return trimmed ? [trimmed] : [];
   }
   return [];
+}
+
+function buildListingTitle(item: Record<string, any>): string | null {
+  const rawTitle = typeof item.title === 'string' ? item.title.trim() : '';
+  if (rawTitle) return rawTitle.slice(0, 80);
+
+  const parts = [
+    typeof item.brand === 'string' ? item.brand.trim() : '',
+    typeof item.product_type === 'string' ? item.product_type.trim() : '',
+    typeof item.colour === 'string' ? item.colour.trim() : '',
+    typeof item.size === 'string' ? item.size.trim() : '',
+    typeof item.category === 'string' ? item.category.trim() : '',
+  ].filter(Boolean);
+
+  if (parts.length === 0) return null;
+  return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
 function buildTypeAspect(item: Record<string, any>, categoryId?: string): string | null {
