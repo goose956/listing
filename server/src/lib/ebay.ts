@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabaseAdmin.js';
+import { getSupabaseAdmin } from './supabaseAdmin.js';
 
 // ── Environment ──────────────────────────────────────────────────────────────
 
@@ -144,7 +144,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<EbayToke
 // ── Load & auto-refresh user token ───────────────────────────────────────────
 
 export async function getValidAccessToken(userId: string): Promise<string> {
-  const { data: conn, error } = await supabaseAdmin
+  const { data: conn, error } = await getSupabaseAdmin()
     .from('user_ebay_connections')
     .select('*')
     .eq('user_id', userId)
@@ -163,7 +163,7 @@ export async function getValidAccessToken(userId: string): Promise<string> {
   const tokens = await refreshAccessToken(conn.refresh_token);
   const newExpiry = new Date(Date.now() + tokens.expires_in * 1000);
 
-  await supabaseAdmin
+  await getSupabaseAdmin()
     .from('user_ebay_connections')
     .update({
       access_token: tokens.access_token,
@@ -230,7 +230,7 @@ export async function saveEbayConnection(
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
-  await supabaseAdmin.from('user_ebay_connections').upsert(
+  await getSupabaseAdmin().from('user_ebay_connections').upsert(
     {
       user_id: userId,
       access_token: tokens.access_token,
