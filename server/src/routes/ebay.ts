@@ -189,7 +189,6 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
 
   try {
     const accessToken = await getValidAccessToken(userId);
-    const api = ebayApi(accessToken);
 
     const { data: conn } = await getSupabaseAdmin()
       .from('user_ebay_connections')
@@ -198,6 +197,7 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
       .single();
 
     const marketplace = conn?.ebay_marketplace ?? 'EBAY_GB';
+    const api = ebayApi(accessToken, marketplace);
     const isUK = marketplace === 'EBAY_GB';
     const currency = isUK ? 'GBP' : 'USD';
     const shippingService = isUK
@@ -344,7 +344,6 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
 
   try {
     const accessToken = await getValidAccessToken(userId);
-    const api = ebayApi(accessToken);
 
     // Load item + connection
     const [{ data: item }, { data: conn }] = await Promise.all([
@@ -365,6 +364,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     if (!conn) return res.status(400).json({ error: 'eBay account not connected' });
 
     const marketplace = conn.ebay_marketplace ?? 'EBAY_GB';
+    const api = ebayApi(accessToken, marketplace);
     const currency = marketplace === 'EBAY_GB' ? 'GBP' : 'USD';
     const sku = `LA-${itemId}`;
 
@@ -474,9 +474,7 @@ ebayRouter.delete('/list/:listingId', async (req: Request, res: Response) => {
 
   try {
     const accessToken = await getValidAccessToken(userId);
-    const api = ebayApi(accessToken);
-
-    // Find the offer ID from our DB
+    const api = ebayApi(accessToken, 'EBAY_GB'); // marketplace not critical for delist
     const { data: item } = await getSupabaseAdmin()
       .from('items')
       .select('ebay_offer_id')

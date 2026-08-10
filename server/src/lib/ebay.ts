@@ -185,11 +185,14 @@ export interface EbayApiClient {
   delete(path: string): Promise<any>;
 }
 
-export function ebayApi(accessToken: string): EbayApiClient {
+export function ebayApi(accessToken: string, marketplace = 'EBAY_GB'): EbayApiClient {
   const baseUrl = EBAY_CONFIG.apiBaseUrl;
-  const headers = {
+  const lang = marketplace === 'EBAY_GB' ? 'en-GB' : 'en-US';
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
+    'Accept-Language': lang,
+    'Content-Language': lang,
   };
 
   async function request(method: string, path: string, body?: unknown, params?: Record<string, string>): Promise<any> {
@@ -256,7 +259,7 @@ export async function getFulfillmentPolicies(
   marketplace: string
 ): Promise<EbayPolicy[]> {
   try {
-    const api = ebayApi(accessToken);
+    const api = ebayApi(accessToken, marketplace);
     const data = await api.get('/sell/account/v1/fulfillment_policy', { marketplace_id: marketplace });
     return (data.fulfillmentPolicies ?? []).map((p: any) => ({
       policyId: p.fulfillmentPolicyId,
@@ -273,7 +276,7 @@ export async function getPaymentPolicies(
   marketplace: string
 ): Promise<EbayPolicy[]> {
   try {
-    const api = ebayApi(accessToken);
+    const api = ebayApi(accessToken, marketplace);
     const data = await api.get('/sell/account/v1/payment_policy', { marketplace_id: marketplace });
     return (data.paymentPolicies ?? []).map((p: any) => ({
       policyId: p.paymentPolicyId,
@@ -290,7 +293,7 @@ export async function getReturnPolicies(
   marketplace: string
 ): Promise<EbayPolicy[]> {
   try {
-    const api = ebayApi(accessToken);
+    const api = ebayApi(accessToken, marketplace);
     const data = await api.get('/sell/account/v1/return_policy', { marketplace_id: marketplace });
     return (data.returnPolicies ?? []).map((p: any) => ({
       policyId: p.returnPolicyId,
@@ -308,7 +311,7 @@ export async function getMerchantLocations(accessToken: string): Promise<
   { merchantLocationKey: string; name: string }[]
 > {
   try {
-    const api = ebayApi(accessToken);
+    const api = ebayApi(accessToken, 'EBAY_GB');
     const data = await api.get('/sell/inventory/v1/location');
     return (data.locations ?? []).map((l: any) => ({
       merchantLocationKey: l.merchantLocationKey,
