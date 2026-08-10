@@ -230,7 +230,9 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
       });
       results.fulfillmentPolicyId = fp.fulfillmentPolicyId;
     } catch (e: any) {
-      errors.push(`Shipping: ${e?.message}`);
+      const detail = e?.response?.data ?? e?.message ?? String(e);
+      console.error('[eBay] fulfillment policy error:', detail);
+      errors.push(`Shipping: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
     }
 
     // Payment policy
@@ -243,7 +245,9 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
       });
       results.paymentPolicyId = pp.paymentPolicyId;
     } catch (e: any) {
-      errors.push(`Payment: ${e?.message}`);
+      const detail = e?.response?.data ?? e?.message ?? String(e);
+      console.error('[eBay] payment policy error:', detail);
+      errors.push(`Payment: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
     }
 
     // Return policy
@@ -258,6 +262,7 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
         refundMethod: 'MONEY_BACK',
       });
       results.returnPolicyId = rp.returnPolicyId;
+      console.log('[eBay] return policy created:', rp.returnPolicyId);
     } catch (e: any) {
       errors.push(`Returns: ${e?.message}`);
     }

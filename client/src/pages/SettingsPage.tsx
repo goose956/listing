@@ -144,18 +144,22 @@ export function SettingsPage() {
 
   async function handleCreateDefaultPolicies() {
     setEbayLoading(true);
+    setError(null);
     try {
       const { results, errors } = await createDefaultEbayPolicies();
-      if (errors.length > 0) setError(`Some policies failed: ${errors.join(', ')}`);
+      if (errors.length > 0) {
+        setError(`Policy creation errors: ${errors.join(' | ')}`);
+      }
       if (Object.keys(results).length > 0) {
-        // Reload policies and status
         const [policies, status] = await Promise.all([getEbayPolicies(), getEbayStatus()]);
         setEbayPolicies(policies);
         setEbayStatus(status);
         setEbayFulfillment(status.fulfillmentPolicyId ?? '');
         setEbayPayment(status.paymentPolicyId ?? '');
         setEbayReturn(status.returnPolicyId ?? '');
-        flash('Default policies created');
+        flash(`Created ${Object.keys(results).length} policies`);
+      } else if (errors.length === 0) {
+        setError('No policies were created and no errors returned — your eBay token may have expired. Try disconnecting and reconnecting eBay.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create default policies');
