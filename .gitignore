@@ -14,6 +14,10 @@ client/.env.local
 server/.env
 server/.env.local
 
+# Local diagnostic/test scripts (may contain credentials read from .env)
+test-*.mjs
+test-*.js
+
 # Logs
 *.log
 npm-debug.log*

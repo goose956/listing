@@ -204,6 +204,12 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
 
     const marketplace = conn?.ebay_marketplace ?? 'EBAY_GB';
     const api = ebayApi(accessToken, marketplace);
+
+    // Opt into Business Policy Management before creating any policies
+    try {
+      await api.post('/sell/account/v1/program/opt_in', { programType: 'SELLING_POLICY_MANAGEMENT' });
+    } catch { /* already opted in */ }
+
     const isUK = marketplace === 'EBAY_GB';
     const currency = isUK ? 'GBP' : 'USD';
     const shippingService = isUK
@@ -357,6 +363,13 @@ async function ensureValidFulfillmentPolicy(
   marketplace: string,
   isUK: boolean
 ): Promise<string> {
+  // Opt into Business Policy Management — idempotent, required after sandbox resets
+  try {
+    await api.post('/sell/account/v1/program/opt_in', { programType: 'SELLING_POLICY_MANAGEMENT' });
+    console.log('[eBay] Business Policy opt-in OK');
+  } catch (optErr: any) {
+    console.warn('[eBay] opt-in warn (may already be opted in):', optErr?.response?.data ?? optErr?.message);
+  }
   const currency = isUK ? 'GBP' : 'USD';
   const shippingOptions = [{
     optionType: 'DOMESTIC',
