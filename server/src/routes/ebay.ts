@@ -14,6 +14,7 @@ import {
   ebayApi,
   EBAY_CONFIG,
 } from '../lib/ebay.js';
+import { logError } from '../lib/errorLog.js';
 import crypto from 'crypto';
 
 export const ebayRouter = Router();
