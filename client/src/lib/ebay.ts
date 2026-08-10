@@ -129,3 +129,11 @@ export async function createDefaultEbayPolicies(): Promise<{ results: Record<str
   if (!res.ok) throw new Error('Failed to create default policies');
   return res.json();
 }
+
+export async function resetEbayItem(itemId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/ebay/reset/${encodeURIComponent(itemId)}`, {
+    method: 'DELETE',
+    headers: await authedHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to reset eBay data');
+}

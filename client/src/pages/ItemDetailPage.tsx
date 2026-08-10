@@ -21,6 +21,7 @@ import {
   createEbayListing,
   delistEbayItem,
   getEbayStatus,
+  resetEbayItem,
 } from '../lib/ebay';
 import {
   deleteItem,
@@ -93,6 +94,7 @@ export function ItemDetailPage() {
   const [ebayDays, setEbayDays] = useState('7');
   const [ebayListing, setEbayListing] = useState(false);
   const [ebayDelisting, setEbayDelisting] = useState(false);
+  const [ebayResetting, setEbayResetting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -304,6 +306,22 @@ export function ItemDetailPage() {
       setError(err instanceof Error ? err.message : 'Failed to delist');
     } finally {
       setEbayDelisting(false);
+    }
+  }
+
+  async function handleEbayReset() {
+    if (!id) return;
+    setEbayResetting(true);
+    setError(null);
+    try {
+      await resetEbayItem(id);
+      const updated = await fetchItem(id);
+      if (updated) { setItem(updated); setForm(itemToForm(updated)); }
+      flash('eBay data cleared — ready to list fresh');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset eBay data');
+    } finally {
+      setEbayResetting(false);
     }
   }
 
@@ -835,6 +853,16 @@ export function ItemDetailPage() {
                   {ebayDelisting ? <Spinner className="border-t-slate-600" /> : <XCircle size={14} />}
                   End listing
                 </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={ebayResetting}
+                  onClick={handleEbayReset}
+                >
+                  {ebayResetting ? <Spinner className="border-t-slate-600" /> : null}
+                  Reset eBay data
+                </Button>
               </div>
             </div>
           ) : (
@@ -908,16 +936,26 @@ export function ItemDetailPage() {
                 )}
               </p>
 
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={ebayListing || !ebayPrice}
-                onClick={handleEbayList}
-              >
-                {ebayListing ? <Spinner className="border-t-teal-600" /> : <ShoppingBag size={14} />}
-                Publish to eBay
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={ebayListing || !ebayPrice}
+                  onClick={handleEbayList}
+                >
+                  {ebayListing ? <Spinner className="border-t-teal-600" /> : <ShoppingBag size={14} />}
+                  Publish to eBay
+                </Button>
+                <button
+                  type="button"
+                  disabled={ebayResetting}
+                  onClick={handleEbayReset}
+                  className="text-xs text-slate-400 hover:text-slate-600 hover:underline disabled:opacity-50"
+                >
+                  {ebayResetting ? 'Resetting…' : 'Reset eBay data'}
+                </button>
+              </div>
             </div>
           )}
         </Card>

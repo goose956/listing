@@ -577,6 +577,51 @@ ebayRouter.delete('/list/:listingId', async (req: Request, res: Response) => {
   }
 });
 
+// ── DELETE /api/ebay/reset/:itemId ────────────────────────────────────────────
+// Deletes all eBay offers + inventory item for the SKU so the user can start fresh.
+ebayRouter.delete('/reset/:itemId', async (req: Request, res: Response) => {
+  const userId = await resolveUserId(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { itemId } = req.params;
+  const sku = `LA-${itemId}`;
+
+  try {
+    const accessToken = await getValidAccessToken(userId);
+    const { data: conn } = await getSupabaseAdmin()
+      .from('user_ebay_connections')
+      .select('ebay_marketplace')
+      .eq('user_id', userId)
+      .single();
+    const marketplace = conn?.ebay_marketplace ?? 'EBAY_GB';
+    const api = ebayApi(accessToken, marketplace);
+
+    // Delete all offers for this SKU
+    try {
+      const offersData = await api.get('/sell/inventory/v1/offer', { sku });
+      for (const offer of (offersData.offers ?? [])) {
+        try { await api.delete(`/sell/inventory/v1/offer/${offer.offerId}`); } catch { /* ignore */ }
+      }
+    } catch { /* no offers found */ }
+
+    // Delete the inventory item
+    try {
+      await api.delete(`/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`);
+    } catch { /* ignore */ }
+
+    // Clear eBay fields on the item
+    await getSupabaseAdmin()
+      .from('items')
+      .update({ ebay_listing_id: null, ebay_offer_id: null, ebay_listing_url: null, ebay_marketplace: null })
+      .eq('id', itemId)
+      .eq('user_id', userId);
+
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'Reset failed' });
+  }
+});
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function conditionIdToEnum(conditionId: number): string {
