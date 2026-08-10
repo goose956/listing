@@ -348,6 +348,82 @@ ebayRouter.delete('/disconnect', async (req: Request, res: Response) => {
 });
 
 // ── POST /api/ebay/list ───────────────────────────────────────────────────────
+
+// Ensures the fulfillment policy has at least one shipping service; repairs it if not.
+async function ensureValidFulfillmentPolicy(
+  api: ReturnType<typeof ebayApi>,
+  userId: string,
+  storedPolicyId: string | null,
+  marketplace: string,
+  isUK: boolean
+): Promise<string> {
+  const currency = isUK ? 'GBP' : 'USD';
+  const shippingOptions = [{
+    optionType: 'DOMESTIC',
+    costType: 'FLAT_RATE',
+    shippingServices: [{
+      shippingServiceCode: isUK ? 'UK_RoyalMailSecondClassStandard' : 'US_USPSFirstClass',
+      buyerResponsibleForShipping: false,
+      shippingCost: { value: isUK ? '3.99' : '4.99', currency },
+      freeShipping: false,
+    }],
+  }];
+  const policyBase = {
+    name: 'Default Shipping',
+    marketplaceId: marketplace,
+    categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
+    handlingTime: { value: 3, unit: 'DAY' },
+    shippingOptions,
+  };
+
+  if (storedPolicyId) {
+    try {
+      const existing = await api.get(`/sell/account/v1/fulfillment_policy/${storedPolicyId}`);
+      const hasServices = (existing?.shippingOptions ?? []).some(
+        (o: any) => (o.shippingServices ?? []).length > 0
+      );
+      if (hasServices) return storedPolicyId;
+      // Policy exists but has no shipping services — update it
+      await api.put(`/sell/account/v1/fulfillment_policy/${storedPolicyId}`, {
+        ...existing,
+        shippingOptions,
+      });
+      console.log('[eBay] repaired fulfillment policy:', storedPolicyId);
+      return storedPolicyId;
+    } catch (e: any) {
+      console.warn('[eBay] stored fulfillment policy missing/invalid, creating new one');
+    }
+  }
+
+  // Create a new policy
+  try {
+    const fp = await api.post('/sell/account/v1/fulfillment_policy', policyBase);
+    await getSupabaseAdmin()
+      .from('user_ebay_connections')
+      .update({ fulfillment_policy_id: fp.fulfillmentPolicyId, updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+    console.log('[eBay] created new fulfillment policy:', fp.fulfillmentPolicyId);
+    return fp.fulfillmentPolicyId;
+  } catch (e: any) {
+    const detail = e?.response?.data ?? '';
+    const parsed = typeof detail === 'string' ? (() => { try { return JSON.parse(detail); } catch { return {}; } })() : detail;
+    const dupId = parsed?.errors?.[0]?.parameters?.find((p: any) => p.name === 'Shipping Profile Id')?.value;
+    if (dupId) {
+      // Duplicate name — update the existing one and use it
+      try {
+        const existing = await api.get(`/sell/account/v1/fulfillment_policy/${dupId}`);
+        await api.put(`/sell/account/v1/fulfillment_policy/${dupId}`, { ...existing, shippingOptions });
+      } catch { /* ignore — even the old broken one is better than nothing */ }
+      await getSupabaseAdmin()
+        .from('user_ebay_connections')
+        .update({ fulfillment_policy_id: dupId, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+      return dupId;
+    }
+    throw e;
+  }
+}
+
 // Creates an eBay listing from an item in the user's inventory.
 // Body: { itemId, listingType: 'FIXED_PRICE' | 'AUCTION', startPrice, buyItNowPrice?, auctionDurationDays? }
 ebayRouter.post('/list', async (req: Request, res: Response) => {
@@ -485,7 +561,11 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     }
     if (inventoryError) throw inventoryError;
 
-    // ── Step 2: Create offer ──────────────────────────────────────────────────
+    // ── Step 2: Ensure fulfillment policy is valid, then create offer ─────────
+    const fulfillmentPolicyId = await ensureValidFulfillmentPolicy(
+      api, userId, conn.fulfillment_policy_id, marketplace, isUK
+    );
+
     const offerBody: Record<string, unknown> = {
       sku,
       marketplaceId: marketplace,
@@ -494,7 +574,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
       categoryId,
       listingDescription: item.description ?? item.title,
       listingPolicies: {
-        fulfillmentPolicyId: conn.fulfillment_policy_id,
+        fulfillmentPolicyId,
         ...(conn.payment_policy_id ? { paymentPolicyId: conn.payment_policy_id } : {}),
         ...(conn.return_policy_id ? { returnPolicyId: conn.return_policy_id } : {}),
       },
