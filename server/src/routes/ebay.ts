@@ -283,6 +283,29 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
       }
     }
 
+    // Merchant location (required for Item.Country)
+    const locationKey = 'la-default-location';
+    try {
+      await api.post(`/sell/inventory/v1/location/${locationKey}`, {
+        location: {
+          address: {
+            addressLine1: '1 Default Street',
+            city: isUK ? 'London' : 'New York',
+            stateOrProvince: isUK ? 'England' : 'NY',
+            postalCode: isUK ? 'SW1A 1AA' : '10001',
+            country: isUK ? 'GB' : 'US',
+          },
+        },
+        merchantLocationStatus: 'ENABLED',
+        name: 'Default Location',
+        locationType: 'WAREHOUSE',
+      });
+      results.merchantLocationKey = locationKey;
+    } catch (e: any) {
+      // Location might already exist — that's fine
+      results.merchantLocationKey = locationKey;
+    }
+
     // Save whatever succeeded
     if (Object.keys(results).length > 0) {
       await getSupabaseAdmin()
@@ -291,6 +314,7 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
           ...(results.fulfillmentPolicyId ? { fulfillment_policy_id: results.fulfillmentPolicyId } : {}),
           ...(results.paymentPolicyId ? { payment_policy_id: results.paymentPolicyId } : {}),
           ...(results.returnPolicyId ? { return_policy_id: results.returnPolicyId } : {}),
+          ...(results.merchantLocationKey ? { merchant_location_key: results.merchantLocationKey } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
@@ -427,8 +451,26 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
         : { listingDuration: `DAYS_${auctionDurationDays}` }),
     };
 
-    const offerData = await api.post('/sell/inventory/v1/offer', offerBody);
-    const offerId: string = offerData.offerId;
+    // ── Step 2: Create or reuse offer ────────────────────────────────────────
+    let offerId: string;
+    try {
+      const offerData = await api.post('/sell/inventory/v1/offer', offerBody);
+      offerId = offerData.offerId;
+    } catch (offerErr: any) {
+      const offerDetail = offerErr?.response?.data ?? '';
+      const offerParsed = typeof offerDetail === 'string'
+        ? (() => { try { return JSON.parse(offerDetail); } catch { return {}; } })()
+        : offerDetail;
+      // If offer already exists, extract its ID and reuse
+      const existingId = offerParsed?.errors?.[0]?.parameters?.find(
+        (p: any) => p.name === 'offerId'
+      )?.value;
+      if (existingId) {
+        offerId = existingId;
+      } else {
+        throw offerErr;
+      }
+    }
 
     // ── Step 3: Publish offer → creates active listing ────────────────────────
     const publishData = await api.post(
