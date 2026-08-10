@@ -73,8 +73,10 @@ export function SettingsPage() {
             setEbayPayment(ebay.paymentPolicyId ?? '');
             setEbayReturn(ebay.returnPolicyId ?? '');
             setEbayLocation(ebay.merchantLocationKey ?? '');
-            // Load policies in background
-            getEbayPolicies().then(setEbayPolicies).catch(() => null);
+            // Auto-load policies; on failure set empty object so text inputs render
+            getEbayPolicies()
+              .then(setEbayPolicies)
+              .catch(() => setEbayPolicies({ fulfillment: [], payment: [], returns: [], locations: [] }));
           }
         }
       } catch (err) {
@@ -442,58 +444,73 @@ export function SettingsPage() {
                 <div className="grid gap-2">
                   <div>
                     <label className="mb-1 block text-xs text-slate-500">Fulfillment / Shipping</label>
-                    <select
-                      value={ebayFulfillment}
-                      onChange={(e) => setEbayFulfillment(e.target.value)}
-                      className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-                    >
-                      <option value="">— Select policy —</option>
-                      {ebayPolicies.fulfillment.map((p) => (
-                        <option key={p.policyId} value={p.policyId}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-500">Payment</label>
-                    <select
-                      value={ebayPayment}
-                      onChange={(e) => setEbayPayment(e.target.value)}
-                      className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-                    >
-                      <option value="">— Select policy —</option>
-                      {ebayPolicies.payment.map((p) => (
-                        <option key={p.policyId} value={p.policyId}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-500">Returns</label>
-                    <select
-                      value={ebayReturn}
-                      onChange={(e) => setEbayReturn(e.target.value)}
-                      className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-                    >
-                      <option value="">— Select policy —</option>
-                      {ebayPolicies.returns.map((p) => (
-                        <option key={p.policyId} value={p.policyId}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {ebayPolicies.locations.length > 0 && (
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-500">Merchant location</label>
+                    {ebayPolicies.fulfillment.length > 0 ? (
                       <select
-                        value={ebayLocation}
-                        onChange={(e) => setEbayLocation(e.target.value)}
+                        value={ebayFulfillment}
+                        onChange={(e) => setEbayFulfillment(e.target.value)}
                         className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
                       >
-                        <option value="">— Select location —</option>
-                        {ebayPolicies.locations.map((l) => (
-                          <option key={l.merchantLocationKey} value={l.merchantLocationKey}>{l.name}</option>
+                        <option value="">— Select policy —</option>
+                        {ebayPolicies.fulfillment.map((p) => (
+                          <option key={p.policyId} value={p.policyId}>{p.name}</option>
                         ))}
                       </select>
-                    </div>
-                  )}
+                    ) : (
+                      <input
+                        type="text"
+                        value={ebayFulfillment}
+                        onChange={(e) => setEbayFulfillment(e.target.value)}
+                        placeholder="Policy ID (e.g. 6242950000)"
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-500">Payment <span className="text-slate-400">(optional in sandbox)</span></label>
+                    {ebayPolicies.payment.length > 0 ? (
+                      <select
+                        value={ebayPayment}
+                        onChange={(e) => setEbayPayment(e.target.value)}
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      >
+                        <option value="">— Select policy —</option>
+                        {ebayPolicies.payment.map((p) => (
+                          <option key={p.policyId} value={p.policyId}>{p.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={ebayPayment}
+                        onChange={(e) => setEbayPayment(e.target.value)}
+                        placeholder="Policy ID (leave blank for sandbox)"
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-500">Returns <span className="text-slate-400">(optional in sandbox)</span></label>
+                    {ebayPolicies.returns.length > 0 ? (
+                      <select
+                        value={ebayReturn}
+                        onChange={(e) => setEbayReturn(e.target.value)}
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      >
+                        <option value="">— Select policy —</option>
+                        {ebayPolicies.returns.map((p) => (
+                          <option key={p.policyId} value={p.policyId}>{p.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={ebayReturn}
+                        onChange={(e) => setEbayReturn(e.target.value)}
+                        placeholder="Policy ID (leave blank for sandbox)"
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      />
+                    )}
+                  </div>
                 </div>
               ) : (
                 <p className="text-xs text-slate-400">
