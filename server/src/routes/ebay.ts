@@ -556,7 +556,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
             title: item.title,
             description: item.description ?? item.title,
             imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-            aspects: buildAspects(item),
+            aspects: buildAspects(item, categoryId),
           },
           availability: { shipToLocationAvailability: { quantity: 1 } },
         });
@@ -796,10 +796,65 @@ function conditionIdToEnum(conditionId: number, categoryId?: string): string {
   return map[conditionId] ?? (isClothing ? 'USED_EXCELLENT' : 'USED_GOOD');
 }
 
-function buildAspects(item: Record<string, any>): Record<string, string[]> {
+function buildTypeAspect(item: Record<string, any>, categoryId?: string): string | null {
+  const productType = typeof item.product_type === 'string' ? item.product_type.trim() : '';
+  if (productType) return productType;
+
+  const fallbackByCategory: Record<string, string> = {
+    '53159': 'Top',
+    '63861': 'Dress',
+    '11554': 'Jeans',
+    '63863': 'Trousers',
+    '169001': 'Leggings',
+    '63864': 'Skirt',
+    '63862': 'Jacket',
+    '63866': 'Jumper',
+    '155226': 'Hoodie',
+    '11555': 'Shorts',
+    '63865': 'Suit',
+    '63867': 'Swimwear',
+    '3009': 'Jumpsuit',
+    '185082': 'Activewear Top',
+    '260954': 'Activewear Trousers',
+    '185084': 'Tracksuit',
+    '260011': 'Outfit',
+    '53557': 'Boot',
+    '55793': 'Heel',
+    '95672': 'Trainer',
+    '45333': 'Flat',
+    '62107': 'Sandal',
+    '169291': 'Handbag',
+    '45238': 'Scarf',
+    '45246': 'Sunglasses',
+    '45230': 'Hat',
+    '3003': 'Belt',
+    '15687': 'T-Shirt',
+    '57990': 'Shirt',
+    '57991': 'Shirt',
+    '11483': 'Jeans',
+    '57989': 'Trousers',
+    '57988': 'Jacket',
+    '11484': 'Jumper',
+    '155183': 'Hoodie',
+    '15689': 'Shorts',
+    '3001': 'Suit',
+    '185708': 'Tracksuit',
+    '261993': 'Necklace',
+    '261990': 'Earring',
+    '261994': 'Ring',
+    '261988': 'Bracelet',
+    '31387': 'Wristwatch',
+  };
+
+  return categoryId ? fallbackByCategory[categoryId] ?? null : null;
+}
+
+function buildAspects(item: Record<string, any>, categoryId?: string): Record<string, string[]> {
   const aspects: Record<string, string[]> = {};
   if (item.brand) aspects['Brand'] = [item.brand];
   if (item.size) aspects['Size'] = [item.size];
   if (item.colour) aspects['Colour'] = [item.colour];
+  const type = buildTypeAspect(item, categoryId);
+  if (type) aspects['Type'] = [type];
   return aspects;
 }
