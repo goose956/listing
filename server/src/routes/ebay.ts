@@ -217,31 +217,38 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
     const errors: string[] = [];
 
     // Fulfillment / shipping policy
-    try {
-      const fp = await api.post('/sell/account/v1/fulfillment_policy', {
-        name: 'Default Shipping',
-        marketplaceId: marketplace,
-        categoryTypes,
-        handlingTime: { value: 3, unit: 'DAY' },
-        shippingOptions: [{
-          optionType: 'DOMESTIC',
-          costType: 'FLAT_RATE',
-          shippingServices: [{
-            shippingServiceCode: shippingService,
-            buyerResponsibleForShipping: false,
-            shippingCost: { value: shippingCost, currency },
-            freeShipping: false,
-          }],
+    const fulfillmentBody = {
+      name: 'Default Shipping',
+      marketplaceId: marketplace,
+      categoryTypes,
+      handlingTime: { value: 3, unit: 'DAY' },
+      shippingOptions: [{
+        optionType: 'DOMESTIC',
+        costType: 'FLAT_RATE',
+        shippingServices: [{
+          shippingServiceCode: shippingService,
+          buyerResponsibleForShipping: false,
+          shippingCost: { value: shippingCost, currency },
+          freeShipping: false,
         }],
-      });
+      }],
+    };
+    try {
+      const fp = await api.post('/sell/account/v1/fulfillment_policy', fulfillmentBody);
       results.fulfillmentPolicyId = fp.fulfillmentPolicyId;
     } catch (e: any) {
       const detail = e?.response?.data ?? e?.message ?? String(e);
       console.error('[eBay] fulfillment policy error:', detail);
-      // If policy already exists, extract and reuse its ID
-      const parsed = typeof detail === 'string' ? JSON.parse(detail) : detail;
+      const parsed = typeof detail === 'string' ? (() => { try { return JSON.parse(detail); } catch { return {}; } })() : detail;
       const dupId = parsed?.errors?.[0]?.parameters?.find((p: any) => p.name === 'Shipping Profile Id')?.value;
       if (dupId) {
+        // Policy exists but may lack shipping services — update it
+        try {
+          await api.put(`/sell/account/v1/fulfillment_policy/${dupId}`, { ...fulfillmentBody, fulfillmentPolicyId: dupId });
+          console.log('[eBay] updated existing fulfillment policy:', dupId);
+        } catch (updateErr: any) {
+          console.warn('[eBay] fulfillment policy update failed:', updateErr?.response?.data ?? updateErr?.message);
+        }
         results.fulfillmentPolicyId = dupId;
       } else {
         errors.push(`Shipping: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
