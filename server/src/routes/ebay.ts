@@ -389,28 +389,27 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     const currency = marketplace === 'EBAY_GB' ? 'GBP' : 'USD';
     const sku = `LA-${itemId}`;
 
-    // Auto-create merchant location if not yet set (required for Item.Country)
-    let merchantLocationKey = conn.merchant_location_key ?? null;
-    if (!merchantLocationKey) {
-      const isUK = marketplace === 'EBAY_GB';
-      const locationKey = 'la-default-location';
-      const country = conn.seller_country || (isUK ? 'GB' : 'US');
-      try {
-        await api.post(`/sell/inventory/v1/location/${locationKey}`, {
-          location: { address: { country } },
-          merchantLocationStatus: 'ENABLED',
-          name: 'My Location',
-          locationType: 'WAREHOUSE',
-        });
-      } catch {
-        // Already exists — reuse
-      }
-      merchantLocationKey = locationKey;
+    // Always ensure merchant location exists — handles first-run and sandbox resets
+    const isUK = marketplace === 'EBAY_GB';
+    const locationKey = conn.merchant_location_key || 'la-default-location';
+    const country = conn.seller_country || (isUK ? 'GB' : 'US');
+    try {
+      await api.post(`/sell/inventory/v1/location/${locationKey}`, {
+        location: { address: { country } },
+        merchantLocationStatus: 'ENABLED',
+        name: 'My Location',
+        locationType: 'WAREHOUSE',
+      });
+    } catch {
+      // Already exists — reuse
+    }
+    if (!conn.merchant_location_key) {
       await getSupabaseAdmin()
         .from('user_ebay_connections')
         .update({ merchant_location_key: locationKey, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
     }
+    const merchantLocationKey = locationKey;
 
     // Sort images — primary first
     const images: { public_url: string; is_primary: boolean; sort_order: number }[] = (item.images ?? []);
