@@ -7,6 +7,8 @@ import {
   saveEbayConnection,
   getCategoryId,
   CONDITION_MAP,
+  CONDITION_ID_TO_ENUM,
+  getValidConditionIds,
   getFulfillmentPolicies,
   getPaymentPolicies,
   getReturnPolicies,
@@ -425,11 +427,22 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     const conditionId = CONDITION_MAP[item.condition ?? 'good'] ?? 4000;
     const categoryId = getCategoryId(item.category, marketplace);
 
+    // Ask eBay which condition IDs are valid for this category, then pick the best match.
+    // Falls back to the full retry chain if the metadata call fails.
+    const validIds = await getValidConditionIds(marketplace, categoryId);
+    let conditionEnum: string;
+    if (validIds.length > 0) {
+      // Walk down from the desired condition until we find one eBay accepts
+      const desired = [conditionId, 3000, 1500, 1000];
+      const bestId = desired.find((id) => validIds.includes(id)) ?? validIds[0];
+      conditionEnum = CONDITION_ID_TO_ENUM[bestId] ?? 'LIKE_NEW';
+      console.log(`[eBay] category ${categoryId} valid IDs: ${validIds.join(',')} → using ${bestId} (${conditionEnum})`);
+    } else {
+      conditionEnum = conditionIdToEnum(conditionId, categoryId);
+    }
+
     // ── Step 1: Create/update inventory item (retry with simpler condition on 25059) ──
-    const conditionFallbacks = [
-      conditionIdToEnum(conditionId, categoryId),
-      'USED_EXCELLENT', 'LIKE_NEW', 'NEW',
-    ];
+    const conditionFallbacks = [conditionEnum, 'USED_EXCELLENT', 'LIKE_NEW', 'NEW'];
     const uniqueConditions = [...new Set(conditionFallbacks)];
     let inventoryError: any = null;
     let usedCondition = uniqueConditions[0];

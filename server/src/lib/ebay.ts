@@ -224,6 +224,74 @@ export function ebayApi(accessToken: string, marketplace = 'EBAY_GB'): EbayApiCl
   };
 }
 
+// ── App-level OAuth token (client_credentials) ────────────────────────────────
+// Used for metadata APIs that don't require user context
+
+let _appTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getAppToken(): Promise<string> {
+  if (_appTokenCache && _appTokenCache.expiresAt > Date.now() + 60_000) {
+    return _appTokenCache.token;
+  }
+  const creds = Buffer.from(`${EBAY_CONFIG.clientId}:${EBAY_CONFIG.clientSecret}`).toString('base64');
+  const res = await fetch(`${EBAY_CONFIG.apiBaseUrl}/identity/v1/oauth2/token`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
+  });
+  if (!res.ok) throw new Error(`App token fetch failed: ${await res.text()}`);
+  const data = await res.json() as { access_token: string; expires_in: number };
+  _appTokenCache = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
+  return data.access_token;
+}
+
+// ── Valid conditions for a category (from eBay Metadata API) ─────────────────
+// Cached in-process; condition policies rarely change.
+
+const _conditionPolicyCache = new Map<string, number[]>();
+
+export async function getValidConditionIds(marketplace: string, categoryId: string): Promise<number[]> {
+  const cacheKey = `${marketplace}:${categoryId}`;
+  if (_conditionPolicyCache.has(cacheKey)) return _conditionPolicyCache.get(cacheKey)!;
+
+  try {
+    const appToken = await getAppToken();
+    const url = `${EBAY_CONFIG.apiBaseUrl}/sell/metadata/v1/marketplace/${marketplace}/get_item_condition_policies?category_ids=${categoryId}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${appToken}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      console.warn(`[eBay] getItemConditionPolicies ${res.status} for ${marketplace}/${categoryId}`);
+      return [];
+    }
+    const data = await res.json() as { itemConditionPolicies?: Array<{ itemConditions?: Array<{ conditionId: string }> }> };
+    const ids = (data.itemConditionPolicies?.[0]?.itemConditions ?? [])
+      .map((c) => parseInt(c.conditionId, 10))
+      .filter((n) => !isNaN(n));
+    console.log(`[eBay] valid condition IDs for ${marketplace}/${categoryId}:`, ids);
+    _conditionPolicyCache.set(cacheKey, ids);
+    return ids;
+  } catch (e) {
+    console.warn('[eBay] getItemConditionPolicies failed:', e);
+    return [];
+  }
+}
+
+// Maps condition ID → Inventory API ConditionEnum string
+// Source: eBay Sell Inventory API ConditionEnum documentation
+export const CONDITION_ID_TO_ENUM: Record<number, string> = {
+  1000: 'NEW',
+  1500: 'LIKE_NEW',
+  2000: 'NEW_OTHER',
+  2500: 'NEW_WITH_DEFECTS',
+  2750: 'MANUFACTURER_REFURBISHED',
+  3000: 'USED_EXCELLENT',
+  4000: 'USED_VERY_GOOD',
+  5000: 'USED_GOOD',
+  6000: 'USED_ACCEPTABLE',
+  7000: 'FOR_PARTS_OR_NOT_WORKING',
+};
+
 // ── Save connection to DB ─────────────────────────────────────────────────────
 
 export async function saveEbayConnection(
