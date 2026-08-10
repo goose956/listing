@@ -425,22 +425,43 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     const conditionId = CONDITION_MAP[item.condition ?? 'good'] ?? 4000;
     const categoryId = getCategoryId(item.category, marketplace);
 
-    // ── Step 1: Create/update inventory item ──────────────────────────────────
-    await api.put(`/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
-      condition: conditionIdToEnum(conditionId, categoryId),
-      conditionDescription: item.condition_notes ?? undefined,
-      product: {
-        title: item.title,
-        description: item.description ?? item.title,
-        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-        aspects: buildAspects(item),
-      },
-      availability: {
-        shipToLocationAvailability: {
-          quantity: 1,
-        },
-      },
-    });
+    // ── Step 1: Create/update inventory item (retry with simpler condition on 25059) ──
+    const conditionFallbacks = [
+      conditionIdToEnum(conditionId, categoryId),
+      'USED_EXCELLENT', 'LIKE_NEW', 'NEW',
+    ];
+    const uniqueConditions = [...new Set(conditionFallbacks)];
+    let inventoryError: any = null;
+    let usedCondition = uniqueConditions[0];
+    for (const cond of uniqueConditions) {
+      try {
+        await api.put(`/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
+          condition: cond,
+          conditionDescription: item.condition_notes ?? undefined,
+          product: {
+            title: item.title,
+            description: item.description ?? item.title,
+            imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+            aspects: buildAspects(item),
+          },
+          availability: { shipToLocationAvailability: { quantity: 1 } },
+        });
+        usedCondition = cond;
+        inventoryError = null;
+        console.log(`[eBay] inventory item created with condition: ${cond}`);
+        break;
+      } catch (e: any) {
+        const detail = e?.response?.data ?? e?.message ?? '';
+        const parsed = typeof detail === 'string' ? (() => { try { return JSON.parse(detail); } catch { return {}; } })() : detail;
+        if (parsed?.errors?.[0]?.errorId === 25059) {
+          console.warn(`[eBay] condition ${cond} rejected for category ${categoryId}, trying next`);
+          inventoryError = e;
+        } else {
+          throw e;
+        }
+      }
+    }
+    if (inventoryError) throw inventoryError;
 
     // ── Step 2: Create offer ──────────────────────────────────────────────────
     const offerBody: Record<string, unknown> = {
