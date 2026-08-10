@@ -8,6 +8,7 @@ import {
   getCategoryId,
   CONDITION_MAP,
   CONDITION_ID_TO_ENUM,
+  getCategoryAspects,
   getValidConditionIds,
   getFulfillmentPolicies,
   getPaymentPolicies,
@@ -123,6 +124,30 @@ ebayRouter.get('/status', async (req: Request, res: Response) => {
     merchantLocationKey: conn.merchant_location_key,
     sellerCountry: conn.seller_country,
   });
+});
+
+// ── GET /api/ebay/aspects/:categoryId ───────────────────────────────────────
+// Returns required item specifics for the selected eBay category.
+ebayRouter.get('/aspects/:categoryId', async (req: Request, res: Response) => {
+  const userId = await resolveUserId(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { categoryId } = req.params;
+  if (!categoryId) return res.status(400).json({ error: 'categoryId is required' });
+
+  try {
+    const { data: conn } = await getSupabaseAdmin()
+      .from('user_ebay_connections')
+      .select('ebay_marketplace')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const marketplace = (req.query.marketplace as string) || conn?.ebay_marketplace || 'EBAY_GB';
+    const aspects = await getCategoryAspects(marketplace, categoryId);
+    res.json({ requiredAspects: aspects.filter((aspect) => aspect.required) });
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message ?? 'Failed to fetch eBay aspects' });
+  }
 });
 
 // ── GET /api/ebay/policies ────────────────────────────────────────────────────
@@ -450,6 +475,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     buyItNowPrice,
     auctionDurationDays = 7,
     ebayCategoryId,
+    ebayAspects,
   } = req.body as {
     itemId: string;
     listingType?: 'FIXED_PRICE' | 'AUCTION';
@@ -457,6 +483,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     buyItNowPrice?: number;
     auctionDurationDays?: number;
     ebayCategoryId?: string;
+    ebayAspects?: Record<string, string | string[] | undefined>;
   };
 
   if (!itemId || startPrice == null) {
@@ -527,6 +554,17 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     const categoryId = ebayCategoryId ?? getCategoryId(item.category, marketplace);
     console.log(`[eBay] categoryId=${categoryId} (${ebayCategoryId ? 'user-selected' : `mapped from "${item.category}"`}), condition="${item.condition}" → conditionId=${conditionId}`);
 
+    const categoryAspects = await getCategoryAspects(marketplace, categoryId);
+    const productAspects = buildAspects(item, categoryId, ebayAspects, categoryAspects);
+    const missingAspects = getMissingRequiredAspects(categoryAspects, productAspects);
+    if (missingAspects.length > 0) {
+      return res.status(400).json({
+        error: 'Missing required eBay item specifics',
+        missingAspects,
+        requiredAspects: categoryAspects.filter((aspect) => aspect.required),
+      });
+    }
+
     // Ask eBay which condition IDs are valid for this category, then pick the best match.
     // Falls back to the full retry chain if the metadata call fails.
     const validIds = await getValidConditionIds(marketplace, categoryId);
@@ -556,7 +594,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
             title: item.title,
             description: item.description ?? item.title,
             imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-            aspects: buildAspects(item, categoryId),
+            aspects: productAspects,
           },
           availability: { shipToLocationAvailability: { quantity: 1 } },
         });
@@ -796,6 +834,19 @@ function conditionIdToEnum(conditionId: number, categoryId?: string): string {
   return map[conditionId] ?? (isClothing ? 'USED_EXCELLENT' : 'USED_GOOD');
 }
 
+function normalizeAspectValue(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  return [];
+}
+
 function buildTypeAspect(item: Record<string, any>, categoryId?: string): string | null {
   const productType = typeof item.product_type === 'string' ? item.product_type.trim() : '';
   if (productType) return productType;
@@ -849,12 +900,67 @@ function buildTypeAspect(item: Record<string, any>, categoryId?: string): string
   return categoryId ? fallbackByCategory[categoryId] ?? null : null;
 }
 
-function buildAspects(item: Record<string, any>, categoryId?: string): Record<string, string[]> {
+function buildAspects(
+  item: Record<string, any>,
+  categoryId?: string,
+  ebayAspects?: Record<string, string | string[] | undefined>,
+  categoryAspects: Array<{ name: string; values: string[] }> = []
+): Record<string, string[]> {
   const aspects: Record<string, string[]> = {};
+  for (const [name, value] of Object.entries(ebayAspects ?? {})) {
+    const normalized = normalizeAspectValue(value);
+    if (normalized.length > 0) aspects[name] = normalized;
+  }
   if (item.brand) aspects['Brand'] = [item.brand];
   if (item.size) aspects['Size'] = [item.size];
   if (item.colour) aspects['Colour'] = [item.colour];
   const type = buildTypeAspect(item, categoryId);
   if (type) aspects['Type'] = [type];
+  if (!aspects['Department']) {
+    if (categoryId && ['53159', '63861', '11554', '63863', '169001', '63864', '63862', '63866', '155226', '11555', '63865', '63867', '3009', '185082', '260954', '185084', '260011', '53557', '55793', '95672', '45333', '62107', '169291'].includes(categoryId)) {
+      aspects['Department'] = ['Women'];
+    } else if (categoryId && ['15687', '57990', '57991', '11483', '57989', '57988', '11484', '155183', '15689', '3001', '185708'].includes(categoryId)) {
+      aspects['Department'] = ['Men'];
+    }
+  }
+  if (!aspects['Sleeve Length']) {
+    const lowerTitle = `${item.product_type ?? ''} ${item.title ?? ''}`.toLowerCase();
+    if (lowerTitle.includes('sleeveless') || lowerTitle.includes('vest') || lowerTitle.includes('tank')) {
+      const sleeveLength = pickAllowedAspectValue(categoryAspects, 'Sleeve Length', ['Sleeveless']);
+      if (sleeveLength) aspects['Sleeve Length'] = sleeveLength;
+    } else if (lowerTitle.includes('short sleeve') || lowerTitle.includes('t-shirt') || lowerTitle.includes('tee')) {
+      const sleeveLength = pickAllowedAspectValue(categoryAspects, 'Sleeve Length', ['Short Sleeve']);
+      if (sleeveLength) aspects['Sleeve Length'] = sleeveLength;
+    } else if (lowerTitle.includes('long sleeve') || lowerTitle.includes('jumper') || lowerTitle.includes('hoodie') || lowerTitle.includes('sweatshirt')) {
+      const sleeveLength = pickAllowedAspectValue(categoryAspects, 'Sleeve Length', ['Long Sleeve']);
+      if (sleeveLength) aspects['Sleeve Length'] = sleeveLength;
+    }
+  }
   return aspects;
+}
+
+function pickAllowedAspectValue(
+  categoryAspects: Array<{ name: string; values: string[] }>,
+  aspectName: string,
+  preferredValues: string[]
+): string[] | undefined {
+  const aspect = categoryAspects.find((entry) => entry.name === aspectName);
+  if (!aspect) return preferredValues.length > 0 ? [preferredValues[0]] : undefined;
+  if (aspect.values.length === 0) return preferredValues.length > 0 ? [preferredValues[0]] : undefined;
+
+  for (const preferred of preferredValues) {
+    const match = aspect.values.find((value) => value.toLowerCase() === preferred.toLowerCase());
+    if (match) return [match];
+  }
+  return undefined;
+}
+
+function getMissingRequiredAspects(
+  categoryAspects: Array<{ name: string; required: boolean }>,
+  productAspects: Record<string, string[]>
+): string[] {
+  return categoryAspects
+    .filter((aspect) => aspect.required)
+    .map((aspect) => aspect.name)
+    .filter((name) => !productAspects[name] || productAspects[name].length === 0 || !productAspects[name][0]?.trim());
 }

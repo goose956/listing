@@ -17,9 +17,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { generateListing, sendListingsEmail } from '../lib/api';
 import {
+  type EbayCategoryAspect,
+  EbayListingError,
   type EbayStatus,
   createEbayListing,
   delistEbayItem,
+  getEbayCategoryAspects,
   getEbayStatus,
   resetEbayItem,
   EBAY_GB_CATEGORIES,
@@ -94,6 +97,10 @@ export function ItemDetailPage() {
   const [ebayBuyItNow, setEbayBuyItNow] = useState('');
   const [ebayDays, setEbayDays] = useState('7');
   const [ebayCategoryId, setEbayCategoryId] = useState<string>(EBAY_GB_CATEGORIES[0].id); // default: Women's Tops & Shirts
+  const [ebayRequiredAspects, setEbayRequiredAspects] = useState<EbayCategoryAspect[]>([]);
+  const [ebayAspectValues, setEbayAspectValues] = useState<Record<string, string>>({});
+  const [ebayAspectLoading, setEbayAspectLoading] = useState(false);
+  const [ebayMissingAspects, setEbayMissingAspects] = useState<string[]>([]);
   const [ebayListing, setEbayListing] = useState(false);
   const [ebayDelisting, setEbayDelisting] = useState(false);
   const [ebayResetting, setEbayResetting] = useState(false);
@@ -136,6 +143,33 @@ export function ItemDetailPage() {
       cancelled = true;
     };
   }, [id, searchParams]);
+
+  useEffect(() => {
+    if (!ebayCategoryId || !ebayStatus?.connected) return;
+    let cancelled = false;
+    (async () => {
+      setEbayAspectLoading(true);
+      try {
+        const requiredAspects = await getEbayCategoryAspects(ebayCategoryId);
+        if (cancelled) return;
+        setEbayRequiredAspects(requiredAspects);
+        setEbayAspectValues((current) => {
+          const next: Record<string, string> = {};
+          for (const aspect of requiredAspects) {
+            next[aspect.name] = current[aspect.name] || guessAspectValue(aspect, form, ebayCategoryId);
+          }
+          return next;
+        });
+      } catch {
+        if (!cancelled) setEbayRequiredAspects([]);
+      } finally {
+        if (!cancelled) setEbayAspectLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ebayCategoryId, ebayStatus?.connected, form]);
 
   function update<K extends keyof ItemFormData>(key: K, value: ItemFormData[K]) {
     setForm((f) => (f ? { ...f, [key]: value } : f));
@@ -276,7 +310,13 @@ export function ItemDetailPage() {
     if (!id || !ebayPrice) return;
     setEbayListing(true);
     setError(null);
+    setEbayMissingAspects([]);
     try {
+      const ebayAspects = Object.fromEntries(
+        Object.entries(ebayAspectValues)
+          .map(([name, value]) => [name, value.trim()])
+          .filter(([, value]) => value)
+      );
       const result = await createEbayListing({
         itemId: id,
         listingType: ebayListingType,
@@ -284,16 +324,26 @@ export function ItemDetailPage() {
         buyItNowPrice: ebayBuyItNow ? parseFloat(ebayBuyItNow) : undefined,
         auctionDurationDays: ebayListingType === 'AUCTION' ? parseInt(ebayDays, 10) : undefined,
         ebayCategoryId,
+        ebayAspects,
       });
       // Refresh item to get new ebay_listing_id
       const updated = await fetchItem(id);
       if (updated) { setItem(updated); setForm(itemToForm(updated)); }
       flash(`Listed on eBay! Listing ID: ${result.listingId}`);
     } catch (err) {
+      if (err instanceof EbayListingError) {
+        setEbayMissingAspects(err.missingAspects);
+        if (err.requiredAspects.length > 0) setEbayRequiredAspects(err.requiredAspects);
+      }
       setError(err instanceof Error ? err.message : 'eBay listing failed');
     } finally {
       setEbayListing(false);
     }
+  }
+
+  function handleEbayAspectChange(name: string, value: string) {
+    setEbayAspectValues((current) => ({ ...current, [name]: value }));
+    setEbayMissingAspects((current) => current.filter((entry) => entry !== name));
   }
 
   async function handleEbayDelist() {
@@ -900,7 +950,10 @@ export function ItemDetailPage() {
                 <label className="mb-1 block text-xs font-medium text-slate-600">eBay category</label>
                 <select
                   value={ebayCategoryId}
-                  onChange={(e) => setEbayCategoryId(e.target.value)}
+                  onChange={(e) => {
+                    setEbayCategoryId(e.target.value);
+                    setEbayMissingAspects([]);
+                  }}
                   className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
                 >
                   {EBAY_GB_CATEGORIES.map((c) => (
@@ -908,6 +961,48 @@ export function ItemDetailPage() {
                   ))}
                 </select>
               </div>
+
+              {ebayAspectLoading ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                  Loading required eBay specifics…
+                </div>
+              ) : ebayRequiredAspects.length > 0 ? (
+                <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <div>
+                    <p className="text-xs font-medium text-slate-700">Required eBay specifics</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      This category requires these item specifics before eBay will accept the listing.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {ebayRequiredAspects.map((aspect) => {
+                      const missing = ebayMissingAspects.includes(aspect.name);
+                      return aspect.mode === 'SELECTION_ONLY' && aspect.values.length > 0 ? (
+                        <Select
+                          key={aspect.name}
+                          label={aspect.name}
+                          value={ebayAspectValues[aspect.name] ?? ''}
+                          onChange={(e) => handleEbayAspectChange(aspect.name, e.target.value)}
+                          className={missing ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20' : undefined}
+                        >
+                          <option value="">Select {aspect.name}</option>
+                          {aspect.values.map((value) => (
+                            <option key={value} value={value}>{value}</option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <Input
+                          key={aspect.name}
+                          label={aspect.name}
+                          value={ebayAspectValues[aspect.name] ?? ''}
+                          onChange={(e) => handleEbayAspectChange(aspect.name, e.target.value)}
+                          className={missing ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20' : undefined}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <Input
@@ -978,4 +1073,48 @@ export function ItemDetailPage() {
       )}
     </div>
   );
+}
+
+function guessAspectValue(
+  aspect: EbayCategoryAspect,
+  form: ItemFormData | null,
+  categoryId: string
+): string {
+  if (!form) return '';
+
+  if (aspect.name === 'Brand') return form.brand;
+  if (aspect.name === 'Size') return form.size;
+  if (aspect.name === 'Colour') return form.colour;
+  if (aspect.name === 'Type') return form.product_type;
+
+  if (aspect.name === 'Department') {
+    const womenCategories = new Set(['53159', '63861', '11554', '63863', '169001', '63864', '63862', '63866', '155226', '11555', '63865', '63867', '3009', '185082', '260954', '185084', '260011', '53557', '55793', '95672', '45333', '62107', '169291']);
+    const menCategories = new Set(['15687', '57990', '57991', '11483', '57989', '57988', '11484', '155183', '15689', '3001', '185708']);
+    if (womenCategories.has(categoryId)) return matchAspectValue(aspect.values, ['Women', 'Woman', 'Ladies']);
+    if (menCategories.has(categoryId)) return matchAspectValue(aspect.values, ['Men', 'Man', 'Mens']);
+  }
+
+  if (aspect.name === 'Sleeve Length') {
+    const label = `${form.product_type} ${form.title}`.toLowerCase();
+    if (label.includes('sleeveless') || label.includes('vest') || label.includes('tank')) {
+      return matchAspectValue(aspect.values, ['Sleeveless']);
+    }
+    if (label.includes('short sleeve') || label.includes('t-shirt') || label.includes('tee')) {
+      return matchAspectValue(aspect.values, ['Short Sleeve']);
+    }
+    if (label.includes('long sleeve') || label.includes('jumper') || label.includes('hoodie') || label.includes('sweatshirt')) {
+      return matchAspectValue(aspect.values, ['Long Sleeve']);
+    }
+  }
+
+  return '';
+}
+
+function matchAspectValue(values: string[], candidates: string[]): string {
+  if (values.length === 0) return candidates[0] ?? '';
+  for (const candidate of candidates) {
+    const match = values.find((value) => value.toLowerCase() === candidate.toLowerCase());
+    if (match) return match;
+  }
+  return '';
 }

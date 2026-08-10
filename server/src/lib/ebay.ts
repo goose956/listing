@@ -185,6 +185,14 @@ export interface EbayApiClient {
   delete(path: string): Promise<any>;
 }
 
+export interface EbayCategoryAspect {
+  name: string;
+  required: boolean;
+  mode: 'FREE_TEXT' | 'SELECTION_ONLY';
+  maxValues: number;
+  values: string[];
+}
+
 export function ebayApi(accessToken: string, marketplace = 'EBAY_GB'): EbayApiClient {
   const baseUrl = EBAY_CONFIG.apiBaseUrl;
   const lang = marketplace === 'EBAY_GB' ? 'en-GB' : 'en-US';
@@ -228,6 +236,8 @@ export function ebayApi(accessToken: string, marketplace = 'EBAY_GB'): EbayApiCl
 // Used for metadata APIs that don't require user context
 
 let _appTokenCache: { token: string; expiresAt: number } | null = null;
+const _defaultCategoryTreeCache = new Map<string, string>();
+const _categoryAspectCache = new Map<string, EbayCategoryAspect[]>();
 
 async function getAppToken(): Promise<string> {
   if (_appTokenCache && _appTokenCache.expiresAt > Date.now() + 60_000) {
@@ -243,6 +253,87 @@ async function getAppToken(): Promise<string> {
   const data = await res.json() as { access_token: string; expires_in: number };
   _appTokenCache = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
   return data.access_token;
+}
+
+async function getDefaultCategoryTreeId(marketplace: string): Promise<string | null> {
+  if (_defaultCategoryTreeCache.has(marketplace)) {
+    return _defaultCategoryTreeCache.get(marketplace)!;
+  }
+
+  try {
+    const appToken = await getAppToken();
+    const url = `${EBAY_CONFIG.apiBaseUrl}/commerce/taxonomy/v1/get_default_category_tree_id?marketplace_id=${marketplace}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${appToken}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      console.warn(`[eBay] getDefaultCategoryTreeId ${res.status} for ${marketplace}`);
+      return null;
+    }
+
+    const data = await res.json() as { categoryTreeId?: string };
+    if (!data.categoryTreeId) return null;
+    _defaultCategoryTreeCache.set(marketplace, data.categoryTreeId);
+    return data.categoryTreeId;
+  } catch (e) {
+    console.warn('[eBay] getDefaultCategoryTreeId failed:', e);
+    return null;
+  }
+}
+
+export async function getCategoryAspects(
+  marketplace: string,
+  categoryId: string
+): Promise<EbayCategoryAspect[]> {
+  const cacheKey = `${marketplace}:${categoryId}`;
+  if (_categoryAspectCache.has(cacheKey)) return _categoryAspectCache.get(cacheKey)!;
+
+  try {
+    const [appToken, categoryTreeId] = await Promise.all([
+      getAppToken(),
+      getDefaultCategoryTreeId(marketplace),
+    ]);
+    if (!categoryTreeId) return [];
+
+    const url = `${EBAY_CONFIG.apiBaseUrl}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_aspects_for_category?category_id=${encodeURIComponent(categoryId)}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${appToken}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      console.warn(`[eBay] getItemAspectsForCategory ${res.status} for ${marketplace}/${categoryId}`);
+      return [];
+    }
+
+    const data = await res.json() as {
+      aspects?: Array<{
+        localizedAspectName?: string;
+        aspectValues?: Array<{ localizedValue?: string }>;
+        aspectConstraint?: {
+          aspectRequired?: boolean;
+          aspectMode?: 'FREE_TEXT' | 'SELECTION_ONLY';
+          itemToAspectCardinality?: 'SINGLE' | 'MULTI';
+        };
+      }>;
+    };
+
+    const aspects = (data.aspects ?? [])
+      .map((aspect) => ({
+        name: aspect.localizedAspectName ?? '',
+        required: !!aspect.aspectConstraint?.aspectRequired,
+        mode: aspect.aspectConstraint?.aspectMode ?? 'FREE_TEXT',
+        maxValues: aspect.aspectConstraint?.itemToAspectCardinality === 'MULTI' ? 30 : 1,
+        values: (aspect.aspectValues ?? [])
+          .map((value) => value.localizedValue?.trim() ?? '')
+          .filter(Boolean),
+      }))
+      .filter((aspect) => aspect.name);
+
+    _categoryAspectCache.set(cacheKey, aspects);
+    return aspects;
+  } catch (e) {
+    console.warn('[eBay] getCategoryAspects failed:', e);
+    return [];
+  }
 }
 
 // ── Valid conditions for a category (from eBay Metadata API) ─────────────────

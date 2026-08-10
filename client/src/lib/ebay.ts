@@ -43,6 +43,26 @@ export interface EbayListingResult {
   listingUrl: string;
 }
 
+export interface EbayCategoryAspect {
+  name: string;
+  required: boolean;
+  mode: 'FREE_TEXT' | 'SELECTION_ONLY';
+  maxValues: number;
+  values: string[];
+}
+
+export class EbayListingError extends Error {
+  missingAspects: string[];
+  requiredAspects: EbayCategoryAspect[];
+
+  constructor(message: string, data?: { missingAspects?: string[]; requiredAspects?: EbayCategoryAspect[] }) {
+    super(message);
+    this.name = 'EbayListingError';
+    this.missingAspects = data?.missingAspects ?? [];
+    this.requiredAspects = data?.requiredAspects ?? [];
+  }
+}
+
 // ── eBay category list (GB leaf categories from Taxonomy API) ─────────────────
 // IDs verified via GET /commerce/taxonomy/v1/category_tree/{id}/get_category_subtree
 export const EBAY_GB_CATEGORIES = [
@@ -147,6 +167,15 @@ export async function saveEbaySettings(settings: {
   if (!res.ok) throw new Error('Failed to save eBay settings');
 }
 
+export async function getEbayCategoryAspects(categoryId: string): Promise<EbayCategoryAspect[]> {
+  const res = await fetch(`${API_BASE}/api/ebay/aspects/${encodeURIComponent(categoryId)}`, {
+    headers: await authedHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch eBay category specifics');
+  const data = await res.json() as { requiredAspects?: EbayCategoryAspect[] };
+  return data.requiredAspects ?? [];
+}
+
 export async function createEbayListing(params: {
   itemId: string;
   listingType: 'FIXED_PRICE' | 'AUCTION';
@@ -154,6 +183,7 @@ export async function createEbayListing(params: {
   buyItNowPrice?: number;
   auctionDurationDays?: number;
   ebayCategoryId?: string;
+  ebayAspects?: Record<string, string>;
 }): Promise<EbayListingResult> {
   const res = await fetch(`${API_BASE}/api/ebay/list`, {
     method: 'POST',
@@ -162,6 +192,11 @@ export async function createEbayListing(params: {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (err?.missingAspects || err?.requiredAspects) {
+      const missing = Array.isArray(err.missingAspects) ? err.missingAspects : [];
+      const suffix = missing.length > 0 ? `: ${missing.join(', ')}` : '';
+      throw new EbayListingError(`${err.error || 'Missing required eBay item specifics'}${suffix}`, err);
+    }
     throw new Error(err.error || 'Failed to create eBay listing');
   }
   return res.json();
