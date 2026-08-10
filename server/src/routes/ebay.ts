@@ -254,8 +254,8 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
     } catch (e: any) {
       const detail = e?.response?.data ?? e?.message ?? String(e);
       console.error('[eBay] payment policy error:', detail);
-      // Sandbox accounts often can't create payment policies — skip silently
-      const parsed = typeof detail === 'string' ? JSON.parse(detail) : detail;
+      // Silently skip sandbox "not opted in to business policies" errors
+      const parsed = typeof detail === 'string' ? (() => { try { return JSON.parse(detail); } catch { return {}; } })() : detail;
       if (parsed?.errors?.[0]?.errorId !== 20403) {
         errors.push(`Payment: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
       }
@@ -275,7 +275,12 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
       results.returnPolicyId = rp.returnPolicyId;
       console.log('[eBay] return policy created:', rp.returnPolicyId);
     } catch (e: any) {
-      errors.push(`Returns: ${e?.message}`);
+      const detail = e?.response?.data ?? e?.message ?? String(e);
+      const parsed = typeof detail === 'string' ? (() => { try { return JSON.parse(detail); } catch { return {}; } })() : detail;
+      // Silently skip sandbox "not opted in to business policies" errors
+      if (parsed?.errors?.[0]?.errorId !== 20403) {
+        errors.push(`Returns: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+      }
     }
 
     // Save whatever succeeded
