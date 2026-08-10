@@ -43,35 +43,57 @@ export interface EbayListingResult {
   listingUrl: string;
 }
 
-// ── eBay category list (GB/US leaf categories) ────────────────────────────────
-// IDs are eBay GB; used directly as categoryId in the offer.
+// ── eBay category list (GB leaf categories from Taxonomy API) ─────────────────
+// IDs verified via GET /commerce/taxonomy/v1/category_tree/{id}/get_category_subtree
 export const EBAY_GB_CATEGORIES = [
-  { label: "Women's Clothing",       id: '15724' },
-  { label: "Men's Clothing",         id: '1059'  },
-  { label: "Women's Shoes",          id: '3034'  },
-  { label: "Men's Shoes",            id: '3035'  },
-  { label: "Kids' Clothing",         id: '3087'  },
-  { label: "Kids' Shoes",            id: '57988' },
-  { label: "Women's Bags",           id: '169291'},
-  { label: "Men's Bags",             id: '169285'},
-  { label: "Women's Accessories",    id: '4251'  },
-  { label: "Men's Accessories",      id: '15273' },
-  { label: "Jewellery",              id: '281'   },
-  { label: "Watches",                id: '31387' },
-  { label: "Sporting Goods",         id: '888'   },
-  { label: "Home & Garden",          id: '11700' },
-  { label: "Kitchen & Dining",       id: '20625' },
-  { label: "Books",                  id: '267'   },
-  { label: "DVDs & Films",           id: '617'   },
-  { label: "CDs & Vinyl",            id: '11233' },
-  { label: "Video Games",            id: '139973'},
-  { label: "Mobile Phones",          id: '9355'  },
-  { label: "Computers & Tablets",    id: '58058' },
-  { label: "Cameras",                id: '625'   },
-  { label: "Toys & Games",           id: '220'   },
-  { label: "Collectibles",           id: '1'     },
-  { label: "Health & Beauty",        id: '26395' },
-  { label: "Other",                  id: '99'    },
+  // Women's Clothing
+  { label: "Women's Tops & Shirts",               id: '53159' },
+  { label: "Women's Dresses",                     id: '63861' },
+  { label: "Women's Jeans",                       id: '11554' },
+  { label: "Women's Trousers",                    id: '63863' },
+  { label: "Women's Leggings",                    id: '169001'},
+  { label: "Women's Skirts",                      id: '63864' },
+  { label: "Women's Coats, Jackets & Waistcoats", id: '63862' },
+  { label: "Women's Jumpers & Cardigans",         id: '63866' },
+  { label: "Women's Hoodies & Sweatshirts",       id: '155226'},
+  { label: "Women's Shorts",                      id: '11555' },
+  { label: "Women's Suits & Tailoring",           id: '63865' },
+  { label: "Women's Swimwear",                    id: '63867' },
+  { label: "Women's Jumpsuits & Playsuits",       id: '3009'  },
+  { label: "Women's Activewear Tops",             id: '185082'},
+  { label: "Women's Activewear Trousers",         id: '260954'},
+  { label: "Women's Tracksuits & Sets",           id: '185084'},
+  { label: "Women's Outfits & Sets",              id: '260011'},
+  // Women's Shoes
+  { label: "Women's Boots",                       id: '53557' },
+  { label: "Women's Heels",                       id: '55793' },
+  { label: "Women's Trainers",                    id: '95672' },
+  { label: "Women's Flats",                       id: '45333' },
+  { label: "Women's Sandals",                     id: '62107' },
+  // Women's Bags & Accessories
+  { label: "Women's Bags & Handbags",             id: '169291'},
+  { label: "Scarves & Shawls",                    id: '45238' },
+  { label: "Sunglasses",                          id: '45246' },
+  { label: "Hats",                                id: '45230' },
+  { label: "Belts",                               id: '3003'  },
+  // Men's Clothing
+  { label: "Men's T-Shirts",                      id: '15687' },
+  { label: "Men's Casual Shirts",                 id: '57990' },
+  { label: "Men's Formal Shirts",                 id: '57991' },
+  { label: "Men's Jeans",                         id: '11483' },
+  { label: "Men's Trousers",                      id: '57989' },
+  { label: "Men's Coats, Jackets & Waistcoats",   id: '57988' },
+  { label: "Men's Jumpers & Cardigans",           id: '11484' },
+  { label: "Men's Hoodies & Sweatshirts",         id: '155183'},
+  { label: "Men's Shorts",                        id: '15689' },
+  { label: "Men's Suits & Tailoring",             id: '3001'  },
+  { label: "Men's Tracksuits & Sets",             id: '185708'},
+  // Jewellery & Watches
+  { label: "Necklaces & Pendants",                id: '261993'},
+  { label: "Earrings",                            id: '261990'},
+  { label: "Rings",                               id: '261994'},
+  { label: "Bracelets & Charms",                  id: '261988'},
+  { label: "Wristwatches",                        id: '31387' },
 ] as const;
 
 // ── API calls ─────────────────────────────────────────────────────────────────
