@@ -400,8 +400,10 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
         name: 'My Location',
         locationType: 'WAREHOUSE',
       });
-    } catch {
-      // Already exists — reuse
+      console.log('[eBay] merchant location created:', locationKey, 'country:', country);
+    } catch (locErr: any) {
+      const locDetail = locErr?.response?.data ?? locErr?.message ?? String(locErr);
+      console.log('[eBay] merchant location response (may already exist):', JSON.stringify(locDetail));
     }
     if (!conn.merchant_location_key) {
       await getSupabaseAdmin()
@@ -480,12 +482,14 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
       const offerParsed = typeof offerDetail === 'string'
         ? (() => { try { return JSON.parse(offerDetail); } catch { return {}; } })()
         : offerDetail;
-      // If offer already exists, extract its ID and reuse
+      // If offer already exists, extract its ID and update it with current settings
       const existingId = offerParsed?.errors?.[0]?.parameters?.find(
         (p: any) => p.name === 'offerId'
       )?.value;
       if (existingId) {
         offerId = existingId;
+        // Update the stale offer so it has the current merchantLocationKey etc.
+        await api.put(`/sell/inventory/v1/offer/${existingId}`, offerBody);
       } else {
         throw offerErr;
       }
