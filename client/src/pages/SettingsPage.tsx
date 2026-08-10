@@ -15,6 +15,7 @@ import {
 import {
   type EbayPolicies,
   type EbayStatus,
+  createDefaultEbayPolicies,
   disconnectEbay,
   getEbayPolicies,
   getEbayStatus,
@@ -136,6 +137,28 @@ export function SettingsPage() {
       setEbayPolicies(policies);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load eBay policies');
+    } finally {
+      setEbayLoading(false);
+    }
+  }
+
+  async function handleCreateDefaultPolicies() {
+    setEbayLoading(true);
+    try {
+      const { results, errors } = await createDefaultEbayPolicies();
+      if (errors.length > 0) setError(`Some policies failed: ${errors.join(', ')}`);
+      if (Object.keys(results).length > 0) {
+        // Reload policies and status
+        const [policies, status] = await Promise.all([getEbayPolicies(), getEbayStatus()]);
+        setEbayPolicies(policies);
+        setEbayStatus(status);
+        setEbayFulfillment(status.fulfillmentPolicyId ?? '');
+        setEbayPayment(status.paymentPolicyId ?? '');
+        setEbayReturn(status.returnPolicyId ?? '');
+        flash('Default policies created');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create default policies');
     } finally {
       setEbayLoading(false);
     }
@@ -389,15 +412,26 @@ export function SettingsPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-slate-600">Listing policies</p>
-                <button
-                  type="button"
-                  onClick={handleLoadPolicies}
-                  disabled={ebayLoading}
-                  className="flex items-center gap-1 text-xs text-teal-600 hover:underline"
-                >
-                  {ebayLoading ? <Spinner className="border-t-teal-600 h-3 w-3" /> : <RefreshCw size={12} />}
-                  {ebayPolicies ? 'Refresh' : 'Load policies'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCreateDefaultPolicies}
+                    disabled={ebayLoading}
+                    className="flex items-center gap-1 text-xs text-slate-500 hover:underline"
+                  >
+                    {ebayLoading ? <Spinner className="border-t-slate-500 h-3 w-3" /> : null}
+                    Create defaults
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLoadPolicies}
+                    disabled={ebayLoading}
+                    className="flex items-center gap-1 text-xs text-teal-600 hover:underline"
+                  >
+                    {ebayLoading ? <Spinner className="border-t-teal-600 h-3 w-3" /> : <RefreshCw size={12} />}
+                    {ebayPolicies ? 'Refresh' : 'Load policies'}
+                  </button>
+                </div>
               </div>
 
               {ebayPolicies ? (

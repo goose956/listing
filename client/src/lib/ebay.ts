@@ -118,3 +118,12 @@ export async function delistEbayItem(listingId: string): Promise<void> {
   });
   if (!res.ok) throw new Error('Failed to delist eBay item');
 }
+
+export async function createDefaultEbayPolicies(): Promise<{ results: Record<string, string>; errors: string[] }> {
+  const res = await fetch(`${API_BASE}/api/ebay/create-default-policies`, {
+    method: 'POST',
+    headers: await authedHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to create default policies');
+  return res.json();
+}

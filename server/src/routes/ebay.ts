@@ -181,6 +181,108 @@ ebayRouter.post('/save-settings', async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// ── POST /api/ebay/create-default-policies ────────────────────────────────────
+// Creates default fulfillment, payment, and return policies for the user.
+ebayRouter.post('/create-default-policies', async (req: Request, res: Response) => {
+  const userId = await resolveUserId(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const accessToken = await getValidAccessToken(userId);
+    const api = ebayApi(accessToken);
+
+    const { data: conn } = await getSupabaseAdmin()
+      .from('user_ebay_connections')
+      .select('ebay_marketplace')
+      .eq('user_id', userId)
+      .single();
+
+    const marketplace = conn?.ebay_marketplace ?? 'EBAY_GB';
+    const isUK = marketplace === 'EBAY_GB';
+    const currency = isUK ? 'GBP' : 'USD';
+    const shippingService = isUK
+      ? 'UK_RoyalMailSecondClassStandard'
+      : 'US_USPSFirstClass';
+    const shippingCost = isUK ? '3.99' : '4.99';
+
+    const categoryTypes = [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }];
+
+    const results: Record<string, string> = {};
+    const errors: string[] = [];
+
+    // Fulfillment / shipping policy
+    try {
+      const fp = await api.post('/sell/account/v1/fulfillment_policy', {
+        name: 'Default Shipping',
+        marketplaceId: marketplace,
+        categoryTypes,
+        handlingTime: { value: 3, unit: 'DAY' },
+        shippingOptions: [{
+          optionType: 'DOMESTIC',
+          costType: 'FLAT_RATE',
+          shippingServices: [{
+            shippingServiceCode: shippingService,
+            buyerResponsibleForShipping: false,
+            shippingCost: { value: shippingCost, currency },
+            freeShipping: false,
+          }],
+        }],
+      });
+      results.fulfillmentPolicyId = fp.fulfillmentPolicyId;
+    } catch (e: any) {
+      errors.push(`Shipping: ${e?.message}`);
+    }
+
+    // Payment policy
+    try {
+      const pp = await api.post('/sell/account/v1/payment_policy', {
+        name: 'Default Payment',
+        marketplaceId: marketplace,
+        categoryTypes,
+        immediatePay: true,
+      });
+      results.paymentPolicyId = pp.paymentPolicyId;
+    } catch (e: any) {
+      errors.push(`Payment: ${e?.message}`);
+    }
+
+    // Return policy
+    try {
+      const rp = await api.post('/sell/account/v1/return_policy', {
+        name: 'Default Returns',
+        marketplaceId: marketplace,
+        categoryTypes,
+        returnsAccepted: true,
+        returnPeriod: { value: 30, unit: 'DAY' },
+        returnShippingCostPayer: 'BUYER',
+        refundMethod: 'MONEY_BACK',
+      });
+      results.returnPolicyId = rp.returnPolicyId;
+    } catch (e: any) {
+      errors.push(`Returns: ${e?.message}`);
+    }
+
+    // Save whatever succeeded
+    if (Object.keys(results).length > 0) {
+      await getSupabaseAdmin()
+        .from('user_ebay_connections')
+        .update({
+          ...(results.fulfillmentPolicyId ? { fulfillment_policy_id: results.fulfillmentPolicyId } : {}),
+          ...(results.paymentPolicyId ? { payment_policy_id: results.paymentPolicyId } : {}),
+          ...(results.returnPolicyId ? { return_policy_id: results.returnPolicyId } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+    }
+
+    res.json({ ok: true, results, errors });
+  } catch (err: any) {
+    const detail = err?.response?.data ?? err?.message;
+    console.error('[eBay create-default-policies] error:', detail);
+    res.status(500).json({ error: 'Failed to create policies', detail });
+  }
+});
+
 // ── DELETE /api/ebay/disconnect ───────────────────────────────────────────────
 ebayRouter.delete('/disconnect', async (req: Request, res: Response) => {
   const userId = await resolveUserId(req.headers.authorization);

@@ -22,21 +22,13 @@ export const PLATFORMS: Platform[] = [
     sellPageUrl: 'https://www.depop.com/products/create/',
     urlPattern: /depop\.com\/(products\/create|products\/edit|sell)/,
   },
-  // Future platforms — uncomment and fill in details:
-  // {
-  //   id: 'ebay',
-  //   label: 'eBay',
-  //   color: '#3b82f6',
-  //   sellPageUrl: 'https://www.ebay.co.uk/sell',
-  //   urlPattern: /ebay\.[^/]+\/sell/,
-  // },
-  // {
-  //   id: 'etsy',
-  //   label: 'Etsy',
-  //   color: '#f97316',
-  //   sellPageUrl: 'https://www.etsy.com/sell',
-  //   urlPattern: /etsy\.com\/listing\/create/,
-  // },
+  {
+    id: 'ebay',
+    label: 'eBay',
+    color: '#3b82f6',
+    sellPageUrl: 'https://www.ebay.co.uk/sell',
+    urlPattern: /ebay\.[^/]+\/(sell\/format|lst\/sell|sell\b)/,
+  },
 ];
 
 export function detectPlatform(url: string): Platform | null {

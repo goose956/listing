@@ -16,6 +16,8 @@
     "https://www.vinted.pt/*",
     "https://www.vinted.pl/*",
     "https://www.depop.com/*",
+    "https://www.ebay.co.uk/*",
+    "https://www.ebay.com/*",
     "https://*.railway.app/*",
     "http://localhost:3001/*"
   ],
@@ -47,6 +49,17 @@
         "https://www.depop.com/sell*"
       ],
       "js": ["src/content/depop.ts"],
+      "css": ["src/content/sidebar.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.ebay.co.uk/sell*",
+        "https://www.ebay.co.uk/lst/sell*",
+        "https://www.ebay.com/sell*",
+        "https://www.ebay.com/lst/sell*"
+      ],
+      "js": ["src/content/ebay.ts"],
       "css": ["src/content/sidebar.css"],
       "run_at": "document_idle"
     }
