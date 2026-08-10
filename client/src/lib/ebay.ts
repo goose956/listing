@@ -43,6 +43,37 @@ export interface EbayListingResult {
   listingUrl: string;
 }
 
+// ── eBay category list (GB/US leaf categories) ────────────────────────────────
+// IDs are eBay GB; used directly as categoryId in the offer.
+export const EBAY_GB_CATEGORIES = [
+  { label: "Women's Clothing",       id: '15724' },
+  { label: "Men's Clothing",         id: '1059'  },
+  { label: "Women's Shoes",          id: '3034'  },
+  { label: "Men's Shoes",            id: '3035'  },
+  { label: "Kids' Clothing",         id: '3087'  },
+  { label: "Kids' Shoes",            id: '57988' },
+  { label: "Women's Bags",           id: '169291'},
+  { label: "Men's Bags",             id: '169285'},
+  { label: "Women's Accessories",    id: '4251'  },
+  { label: "Men's Accessories",      id: '15273' },
+  { label: "Jewellery",              id: '281'   },
+  { label: "Watches",                id: '31387' },
+  { label: "Sporting Goods",         id: '888'   },
+  { label: "Home & Garden",          id: '11700' },
+  { label: "Kitchen & Dining",       id: '20625' },
+  { label: "Books",                  id: '267'   },
+  { label: "DVDs & Films",           id: '617'   },
+  { label: "CDs & Vinyl",            id: '11233' },
+  { label: "Video Games",            id: '139973'},
+  { label: "Mobile Phones",          id: '9355'  },
+  { label: "Computers & Tablets",    id: '58058' },
+  { label: "Cameras",                id: '625'   },
+  { label: "Toys & Games",           id: '220'   },
+  { label: "Collectibles",           id: '1'     },
+  { label: "Health & Beauty",        id: '26395' },
+  { label: "Other",                  id: '99'    },
+] as const;
+
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 export async function getEbayStatus(): Promise<EbayStatus> {
@@ -100,6 +131,7 @@ export async function createEbayListing(params: {
   startPrice: number;
   buyItNowPrice?: number;
   auctionDurationDays?: number;
+  ebayCategoryId?: string;
 }): Promise<EbayListingResult> {
   const res = await fetch(`${API_BASE}/api/ebay/list`, {
     method: 'POST',

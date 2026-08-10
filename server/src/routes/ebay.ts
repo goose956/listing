@@ -436,12 +436,14 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     startPrice,
     buyItNowPrice,
     auctionDurationDays = 7,
+    ebayCategoryId,
   } = req.body as {
     itemId: string;
     listingType?: 'FIXED_PRICE' | 'AUCTION';
     startPrice: number;
     buyItNowPrice?: number;
     auctionDurationDays?: number;
+    ebayCategoryId?: string;
   };
 
   if (!itemId || startPrice == null) {
@@ -508,8 +510,9 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     const imageUrls = images.map((img) => img.public_url).filter(Boolean).slice(0, 12);
 
     const conditionId = CONDITION_MAP[item.condition ?? 'good'] ?? 4000;
-    const categoryId = getCategoryId(item.category, marketplace);
-    console.log(`[eBay] item category="${item.category}" → categoryId=${categoryId}, condition="${item.condition}" → conditionId=${conditionId}`);
+    // ebayCategoryId is user-selected; fall back to CATEGORY_MAP lookup only if absent
+    const categoryId = ebayCategoryId ?? getCategoryId(item.category, marketplace);
+    console.log(`[eBay] categoryId=${categoryId} (${ebayCategoryId ? 'user-selected' : `mapped from "${item.category}"`}), condition="${item.condition}" → conditionId=${conditionId}`);
 
     // Ask eBay which condition IDs are valid for this category, then pick the best match.
     // Falls back to the full retry chain if the metadata call fails.

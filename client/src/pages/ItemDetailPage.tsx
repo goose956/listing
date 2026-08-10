@@ -22,6 +22,7 @@ import {
   delistEbayItem,
   getEbayStatus,
   resetEbayItem,
+  EBAY_GB_CATEGORIES,
 } from '../lib/ebay';
 import {
   deleteItem,
@@ -92,6 +93,7 @@ export function ItemDetailPage() {
   const [ebayPrice, setEbayPrice] = useState('');
   const [ebayBuyItNow, setEbayBuyItNow] = useState('');
   const [ebayDays, setEbayDays] = useState('7');
+  const [ebayCategoryId, setEbayCategoryId] = useState('15724'); // default: Women's Clothing
   const [ebayListing, setEbayListing] = useState(false);
   const [ebayDelisting, setEbayDelisting] = useState(false);
   const [ebayResetting, setEbayResetting] = useState(false);
@@ -281,6 +283,7 @@ export function ItemDetailPage() {
         startPrice: parseFloat(ebayPrice),
         buyItNowPrice: ebayBuyItNow ? parseFloat(ebayBuyItNow) : undefined,
         auctionDurationDays: ebayListingType === 'AUCTION' ? parseInt(ebayDays, 10) : undefined,
+        ebayCategoryId,
       });
       // Refresh item to get new ebay_listing_id
       const updated = await fetchItem(id);
@@ -891,6 +894,19 @@ export function ItemDetailPage() {
                 >
                   Auction
                 </button>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">eBay category</label>
+                <select
+                  value={ebayCategoryId}
+                  onChange={(e) => setEbayCategoryId(e.target.value)}
+                  className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                >
+                  {EBAY_GB_CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
