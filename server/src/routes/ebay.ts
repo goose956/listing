@@ -232,7 +232,14 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
     } catch (e: any) {
       const detail = e?.response?.data ?? e?.message ?? String(e);
       console.error('[eBay] fulfillment policy error:', detail);
-      errors.push(`Shipping: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+      // If policy already exists, extract and reuse its ID
+      const parsed = typeof detail === 'string' ? JSON.parse(detail) : detail;
+      const dupId = parsed?.errors?.[0]?.parameters?.find((p: any) => p.name === 'Shipping Profile Id')?.value;
+      if (dupId) {
+        results.fulfillmentPolicyId = dupId;
+      } else {
+        errors.push(`Shipping: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+      }
     }
 
     // Payment policy
@@ -247,7 +254,11 @@ ebayRouter.post('/create-default-policies', async (req: Request, res: Response) 
     } catch (e: any) {
       const detail = e?.response?.data ?? e?.message ?? String(e);
       console.error('[eBay] payment policy error:', detail);
-      errors.push(`Payment: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+      // Sandbox accounts often can't create payment policies — skip silently
+      const parsed = typeof detail === 'string' ? JSON.parse(detail) : detail;
+      if (parsed?.errors?.[0]?.errorId !== 20403) {
+        errors.push(`Payment: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+      }
     }
 
     // Return policy
@@ -391,8 +402,8 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
       listingDescription: item.description ?? item.title,
       listingPolicies: {
         fulfillmentPolicyId: conn.fulfillment_policy_id,
-        paymentPolicyId: conn.payment_policy_id,
-        returnPolicyId: conn.return_policy_id,
+        ...(conn.payment_policy_id ? { paymentPolicyId: conn.payment_policy_id } : {}),
+        ...(conn.return_policy_id ? { returnPolicyId: conn.return_policy_id } : {}),
       },
       merchantLocationKey: conn.merchant_location_key ?? undefined,
       pricingSummary:
