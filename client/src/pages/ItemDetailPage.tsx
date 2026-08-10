@@ -93,7 +93,7 @@ export function ItemDetailPage() {
   const [ebayPrice, setEbayPrice] = useState('');
   const [ebayBuyItNow, setEbayBuyItNow] = useState('');
   const [ebayDays, setEbayDays] = useState('7');
-  const [ebayCategoryId, setEbayCategoryId] = useState(EBAY_GB_CATEGORIES[0].id); // default: Women's Tops & Shirts
+  const [ebayCategoryId, setEbayCategoryId] = useState<string>(EBAY_GB_CATEGORIES[0].id); // default: Women's Tops & Shirts
   const [ebayListing, setEbayListing] = useState(false);
   const [ebayDelisting, setEbayDelisting] = useState(false);
   const [ebayResetting, setEbayResetting] = useState(false);
