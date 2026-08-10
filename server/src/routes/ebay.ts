@@ -392,6 +392,35 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
     const currency = marketplace === 'EBAY_GB' ? 'GBP' : 'USD';
     const sku = `LA-${itemId}`;
 
+    // Auto-create merchant location if not yet set (required for Item.Country)
+    let merchantLocationKey = conn.merchant_location_key ?? null;
+    if (!merchantLocationKey) {
+      const isUK = marketplace === 'EBAY_GB';
+      const locationKey = 'la-default-location';
+      try {
+        await api.post(`/sell/inventory/v1/location/${locationKey}`, {
+          location: {
+            address: {
+              city: isUK ? 'London' : 'New York',
+              postalCode: isUK ? 'SW1A 1AA' : '10001',
+              country: isUK ? 'GB' : 'US',
+              ...(isUK ? {} : { stateOrProvince: 'NY' }),
+            },
+          },
+          merchantLocationStatus: 'ENABLED',
+          name: 'Default Location',
+          locationType: 'WAREHOUSE',
+        });
+      } catch {
+        // Already exists — reuse
+      }
+      merchantLocationKey = locationKey;
+      await getSupabaseAdmin()
+        .from('user_ebay_connections')
+        .update({ merchant_location_key: locationKey, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+    }
+
     // Sort images — primary first
     const images: { public_url: string; is_primary: boolean; sort_order: number }[] = (item.images ?? []);
     images.sort((a, b) => {
@@ -434,7 +463,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
         ...(conn.payment_policy_id ? { paymentPolicyId: conn.payment_policy_id } : {}),
         ...(conn.return_policy_id ? { returnPolicyId: conn.return_policy_id } : {}),
       },
-      merchantLocationKey: conn.merchant_location_key ?? undefined,
+      merchantLocationKey: merchantLocationKey ?? undefined,
       pricingSummary:
         listingType === 'FIXED_PRICE'
           ? {
