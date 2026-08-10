@@ -21,7 +21,7 @@ export interface EbayStatus {
   paymentPolicyId?: string;
   returnPolicyId?: string;
   merchantLocationKey?: string;
-  sellerPostcode?: string;
+  sellerCountry?: string;
 }
 
 export interface EbayPolicy {
@@ -84,7 +84,7 @@ export async function saveEbaySettings(settings: {
   returnPolicyId?: string;
   merchantLocationKey?: string;
   marketplace?: string;
-  sellerPostcode?: string;
+  sellerCountry?: string;
 }): Promise<void> {
   const res = await fetch(`${API_BASE}/api/ebay/save-settings`, {
     method: 'POST',

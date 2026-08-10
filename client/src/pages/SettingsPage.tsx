@@ -43,7 +43,7 @@ export function SettingsPage() {
   const [ebayFulfillment, setEbayFulfillment] = useState('');
   const [ebayPayment, setEbayPayment] = useState('');
   const [ebayReturn, setEbayReturn] = useState('');
-  const [ebayPostcode, setEbayPostcode] = useState('');
+  const [ebayPostcode, setEbayPostcode] = useState('GB');
   const [ebaySaving, setEbaySaving] = useState(false);
   const [ebayLoading, setEbayLoading] = useState(false);
 
@@ -72,7 +72,7 @@ export function SettingsPage() {
             setEbayFulfillment(ebay.fulfillmentPolicyId ?? '');
             setEbayPayment(ebay.paymentPolicyId ?? '');
             setEbayReturn(ebay.returnPolicyId ?? '');
-            setEbayPostcode(ebay.sellerPostcode ?? '');
+            setEbayPostcode(ebay.sellerCountry ?? (ebay.marketplace === 'EBAY_US' ? 'US' : 'GB'));
             // Auto-load policies; on failure set empty object so text inputs render
             getEbayPolicies()
               .then(setEbayPolicies)
@@ -159,7 +159,7 @@ export function SettingsPage() {
         setEbayFulfillment(status.fulfillmentPolicyId ?? '');
         setEbayPayment(status.paymentPolicyId ?? '');
         setEbayReturn(status.returnPolicyId ?? '');
-        setEbayPostcode(status.sellerPostcode ?? '');
+        setEbayPostcode(status.sellerCountry ?? (status.marketplace === 'EBAY_US' ? 'US' : 'GB'));
         flash(`Created ${Object.keys(results).length} policies`);
       } else if (errors.length === 0) {
         setError('No policies were created and no errors returned — your eBay token may have expired. Try disconnecting and reconnecting eBay.');
@@ -178,7 +178,7 @@ export function SettingsPage() {
         fulfillmentPolicyId: ebayFulfillment || undefined,
         paymentPolicyId: ebayPayment || undefined,
         returnPolicyId: ebayReturn || undefined,
-        sellerPostcode: ebayPostcode || undefined,
+        sellerCountry: ebayPostcode || undefined,
         marketplace: ebayMarketplace,
       });
       // Refresh status
@@ -513,17 +513,23 @@ export function SettingsPage() {
                     )}
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">
-                      {ebayMarketplace === 'EBAY_GB' ? 'Your postcode' : 'Your ZIP code'}
-                      <span className="ml-1 text-slate-400">(used as seller location on listings)</span>
-                    </label>
-                    <input
-                      type="text"
+                    <label className="mb-1 block text-xs text-slate-500">Item location (country)</label>
+                    <select
                       value={ebayPostcode}
                       onChange={(e) => setEbayPostcode(e.target.value)}
-                      placeholder={ebayMarketplace === 'EBAY_GB' ? 'e.g. SW1A 1AA' : 'e.g. 10001'}
                       className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-                    />
+                    >
+                      <option value="GB">United Kingdom</option>
+                      <option value="US">United States</option>
+                      <option value="IE">Ireland</option>
+                      <option value="AU">Australia</option>
+                      <option value="CA">Canada</option>
+                      <option value="DE">Germany</option>
+                      <option value="FR">France</option>
+                      <option value="NL">Netherlands</option>
+                      <option value="IT">Italy</option>
+                      <option value="ES">Spain</option>
+                    </select>
                   </div>
                 </div>
               ) : (
