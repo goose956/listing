@@ -92,6 +92,7 @@ export function ItemDetailPage() {
   const [platformPrices, setPlatformPrices] = useState<Record<string, string>>({});
   const [savingPrices, setSavingPrices] = useState(false);
   const [ebayCategoryTouched, setEbayCategoryTouched] = useState(false);
+  const [ebayCategoryLabel, setEbayCategoryLabel] = useState<string>(EBAY_GB_CATEGORIES[0].label);
   const [ebayCategorySearch, setEbayCategorySearch] = useState('');
   const [debouncedEbayCategorySearch, setDebouncedEbayCategorySearch] = useState('');
   const [ebayCategorySuggestions, setEbayCategorySuggestions] = useState<EbayCategorySuggestion[]>([]);
@@ -138,7 +139,9 @@ export function ItemDetailPage() {
           depop: pp.depop != null ? String(pp.depop) : '',
         });
         if (!ebayCategoryTouched) {
-          setEbayCategoryId(suggestEbayCategoryId(itemToForm(data)));
+          const suggestedCategoryId = suggestEbayCategoryId(itemToForm(data));
+          setEbayCategoryId(suggestedCategoryId);
+          setEbayCategoryLabel(getPresetCategoryLabel(suggestedCategoryId));
         }
         // Pre-fill eBay price from list_price
         if (data.list_price != null) setEbayPrice(String(data.list_price));
@@ -385,6 +388,9 @@ export function ItemDetailPage() {
     setEbayAspectValues((current) => ({ ...current, [name]: value }));
     setEbayMissingAspects((current) => current.filter((entry) => entry !== name));
   }
+
+  const selectedPresetCategory = EBAY_GB_CATEGORIES.find((category) => category.id === ebayCategoryId);
+  const isCustomEbayCategory = !selectedPresetCategory;
 
   async function handleEbayDelist() {
     if (!item?.ebay_listing_id) return;
@@ -1007,6 +1013,7 @@ export function ItemDetailPage() {
                         onClick={() => {
                           setEbayCategoryTouched(true);
                           setEbayCategoryId(suggestion.categoryId);
+                          setEbayCategoryLabel(suggestion.categoryName);
                           setEbayMissingAspects([]);
                           setEbayCategorySearch(suggestion.categoryName);
                         }}
@@ -1023,19 +1030,38 @@ export function ItemDetailPage() {
                 ) : debouncedEbayCategorySearch.length >= 2 ? (
                   <p className="mt-2 text-xs text-slate-400">No matching eBay categories found for that search.</p>
                 ) : null}
-                <select
-                  value={ebayCategoryId}
-                  onChange={(e) => {
-                    setEbayCategoryTouched(true);
-                    setEbayCategoryId(e.target.value);
-                    setEbayMissingAspects([]);
-                  }}
-                  className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-                >
-                  {EBAY_GB_CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>{c.label}</option>
-                  ))}
-                </select>
+                {isCustomEbayCategory ? (
+                  <div className="mt-2 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-800">
+                    <div className="font-medium">Selected eBay category: {ebayCategoryLabel}</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEbayCategoryId(EBAY_GB_CATEGORIES[0].id);
+                        setEbayCategoryLabel(EBAY_GB_CATEGORIES[0].label);
+                        setEbayMissingAspects([]);
+                      }}
+                      className="mt-1 text-teal-700 underline hover:text-teal-800"
+                    >
+                      Switch back to quick-pick categories
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={ebayCategoryId}
+                    onChange={(e) => {
+                      const nextCategoryId = e.target.value;
+                      setEbayCategoryTouched(true);
+                      setEbayCategoryId(nextCategoryId);
+                      setEbayCategoryLabel(getPresetCategoryLabel(nextCategoryId));
+                      setEbayMissingAspects([]);
+                    }}
+                    className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                  >
+                    {EBAY_GB_CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {ebayAspectLoading ? (
@@ -1193,6 +1219,10 @@ function matchAspectValue(values: string[], candidates: string[]): string {
     if (match) return match;
   }
   return '';
+}
+
+function getPresetCategoryLabel(categoryId: string): string {
+  return EBAY_GB_CATEGORIES.find((category) => category.id === categoryId)?.label ?? categoryId;
 }
 
 function suggestEbayCategoryId(form: ItemFormData): string {
