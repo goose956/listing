@@ -159,6 +159,7 @@ export function SettingsPage() {
         setEbayFulfillment(status.fulfillmentPolicyId ?? '');
         setEbayPayment(status.paymentPolicyId ?? '');
         setEbayReturn(status.returnPolicyId ?? '');
+        setEbayLocation(status.merchantLocationKey ?? '');
         flash(`Created ${Object.keys(results).length} policies`);
       } else if (errors.length === 0) {
         setError('No policies were created and no errors returned — your eBay token may have expired. Try disconnecting and reconnecting eBay.');
@@ -507,6 +508,29 @@ export function SettingsPage() {
                         value={ebayReturn}
                         onChange={(e) => setEbayReturn(e.target.value)}
                         placeholder="Policy ID (leave blank for sandbox)"
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-500">Merchant Location Key</label>
+                    {ebayPolicies.locations.length > 0 ? (
+                      <select
+                        value={ebayLocation}
+                        onChange={(e) => setEbayLocation(e.target.value)}
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+                      >
+                        <option value="">— Select location —</option>
+                        {ebayPolicies.locations.map((l) => (
+                          <option key={l.merchantLocationKey} value={l.merchantLocationKey}>{l.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={ebayLocation}
+                        onChange={(e) => setEbayLocation(e.target.value)}
+                        placeholder="e.g. la-default-location"
                         className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
                       />
                     )}
