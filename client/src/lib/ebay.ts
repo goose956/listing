@@ -51,6 +51,11 @@ export interface EbayCategoryAspect {
   values: string[];
 }
 
+export interface EbayCategorySuggestion {
+  categoryId: string;
+  categoryName: string;
+}
+
 export class EbayListingError extends Error {
   missingAspects: string[];
   requiredAspects: EbayCategoryAspect[];
@@ -180,6 +185,15 @@ export async function getEbayCategoryAspects(categoryId: string): Promise<EbayCa
   if (!res.ok) throw new Error('Failed to fetch eBay category specifics');
   const data = await res.json() as { requiredAspects?: EbayCategoryAspect[] };
   return data.requiredAspects ?? [];
+}
+
+export async function getEbayCategorySuggestions(query: string): Promise<EbayCategorySuggestion[]> {
+  const res = await fetch(`${API_BASE}/api/ebay/category-suggestions?q=${encodeURIComponent(query)}`, {
+    headers: await authedHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch eBay category suggestions');
+  const data = await res.json() as { suggestions?: EbayCategorySuggestion[] };
+  return data.suggestions ?? [];
 }
 
 export async function createEbayListing(params: {

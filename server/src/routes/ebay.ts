@@ -9,6 +9,7 @@ import {
   CONDITION_MAP,
   CONDITION_ID_TO_ENUM,
   getCategoryAspects,
+  getCategorySuggestions,
   getValidConditionIds,
   getFulfillmentPolicies,
   getPaymentPolicies,
@@ -147,6 +148,30 @@ ebayRouter.get('/aspects/:categoryId', async (req: Request, res: Response) => {
     res.json({ requiredAspects: aspects.filter((aspect) => aspect.required) });
   } catch (err: any) {
     res.status(400).json({ error: err?.message ?? 'Failed to fetch eBay aspects' });
+  }
+});
+
+// ── GET /api/ebay/category-suggestions ──────────────────────────────────────
+// Returns eBay taxonomy matches for free-text category search.
+ebayRouter.get('/category-suggestions', async (req: Request, res: Response) => {
+  const userId = await resolveUserId(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (!query) return res.json({ suggestions: [] });
+
+  try {
+    const { data: conn } = await getSupabaseAdmin()
+      .from('user_ebay_connections')
+      .select('ebay_marketplace')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const marketplace = (req.query.marketplace as string) || conn?.ebay_marketplace || 'EBAY_GB';
+    const suggestions = await getCategorySuggestions(marketplace, query);
+    res.json({ suggestions });
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message ?? 'Failed to fetch eBay category suggestions' });
   }
 });
 

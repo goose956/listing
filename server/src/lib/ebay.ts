@@ -193,6 +193,11 @@ export interface EbayCategoryAspect {
   values: string[];
 }
 
+export interface EbayCategorySuggestion {
+  categoryId: string;
+  categoryName: string;
+}
+
 export function ebayApi(accessToken: string, marketplace = 'EBAY_GB'): EbayApiClient {
   const baseUrl = EBAY_CONFIG.apiBaseUrl;
   const lang = marketplace === 'EBAY_GB' ? 'en-GB' : 'en-US';
@@ -238,6 +243,7 @@ export function ebayApi(accessToken: string, marketplace = 'EBAY_GB'): EbayApiCl
 let _appTokenCache: { token: string; expiresAt: number } | null = null;
 const _defaultCategoryTreeCache = new Map<string, string>();
 const _categoryAspectCache = new Map<string, EbayCategoryAspect[]>();
+const _categorySuggestionCache = new Map<string, EbayCategorySuggestion[]>();
 
 async function getAppToken(): Promise<string> {
   if (_appTokenCache && _appTokenCache.expiresAt > Date.now() + 60_000) {
@@ -332,6 +338,63 @@ export async function getCategoryAspects(
     return aspects;
   } catch (e) {
     console.warn('[eBay] getCategoryAspects failed:', e);
+    return [];
+  }
+}
+
+export async function getCategorySuggestions(
+  marketplace: string,
+  query: string
+): Promise<EbayCategorySuggestion[]> {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return [];
+
+  const cacheKey = `${marketplace}:${normalizedQuery.toLowerCase()}`;
+  if (_categorySuggestionCache.has(cacheKey)) return _categorySuggestionCache.get(cacheKey)!;
+
+  try {
+    const [appToken, categoryTreeId] = await Promise.all([
+      getAppToken(),
+      getDefaultCategoryTreeId(marketplace),
+    ]);
+    if (!categoryTreeId) return [];
+
+    const url = `${EBAY_CONFIG.apiBaseUrl}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_category_suggestions?q=${encodeURIComponent(normalizedQuery)}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${appToken}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      console.warn(`[eBay] getCategorySuggestions ${res.status} for ${marketplace}/${normalizedQuery}`);
+      return [];
+    }
+
+    const data = await res.json() as {
+      categorySuggestions?: Array<{
+        category?: {
+          categoryId?: string;
+          categoryName?: string;
+        };
+      }>;
+    };
+
+    const seen = new Set<string>();
+    const suggestions = (data.categorySuggestions ?? [])
+      .map((entry) => ({
+        categoryId: entry.category?.categoryId ?? '',
+        categoryName: entry.category?.categoryName ?? '',
+      }))
+      .filter((entry) => entry.categoryId && entry.categoryName)
+      .filter((entry) => {
+        if (seen.has(entry.categoryId)) return false;
+        seen.add(entry.categoryId);
+        return true;
+      })
+      .slice(0, 12);
+
+    _categorySuggestionCache.set(cacheKey, suggestions);
+    return suggestions;
+  } catch (e) {
+    console.warn('[eBay] getCategorySuggestions failed:', e);
     return [];
   }
 }

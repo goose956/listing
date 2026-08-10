@@ -18,11 +18,13 @@ import { useAuth } from '../context/AuthContext';
 import { generateListing, sendListingsEmail } from '../lib/api';
 import {
   type EbayCategoryAspect,
+  type EbayCategorySuggestion,
   EbayListingError,
   type EbayStatus,
   createEbayListing,
   delistEbayItem,
   getEbayCategoryAspects,
+  getEbayCategorySuggestions,
   getEbayStatus,
   resetEbayItem,
   EBAY_GB_CATEGORIES,
@@ -90,6 +92,10 @@ export function ItemDetailPage() {
   const [platformPrices, setPlatformPrices] = useState<Record<string, string>>({});
   const [savingPrices, setSavingPrices] = useState(false);
   const [ebayCategoryTouched, setEbayCategoryTouched] = useState(false);
+  const [ebayCategorySearch, setEbayCategorySearch] = useState('');
+  const [debouncedEbayCategorySearch, setDebouncedEbayCategorySearch] = useState('');
+  const [ebayCategorySuggestions, setEbayCategorySuggestions] = useState<EbayCategorySuggestion[]>([]);
+  const [ebayCategorySearching, setEbayCategorySearching] = useState(false);
 
   // eBay listing state
   const [ebayStatus, setEbayStatus] = useState<EbayStatus | null>(null);
@@ -105,6 +111,11 @@ export function ItemDetailPage() {
   const [ebayListing, setEbayListing] = useState(false);
   const [ebayDelisting, setEbayDelisting] = useState(false);
   const [ebayResetting, setEbayResetting] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedEbayCategorySearch(ebayCategorySearch.trim()), 300);
+    return () => clearTimeout(t);
+  }, [ebayCategorySearch]);
 
   useEffect(() => {
     if (!id) return;
@@ -174,6 +185,31 @@ export function ItemDetailPage() {
       cancelled = true;
     };
   }, [ebayCategoryId, ebayStatus?.connected, form]);
+
+  useEffect(() => {
+    if (!ebayStatus?.connected || debouncedEbayCategorySearch.length < 2) {
+      setEbayCategorySuggestions([]);
+      setEbayCategorySearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      setEbayCategorySearching(true);
+      try {
+        const suggestions = await getEbayCategorySuggestions(debouncedEbayCategorySearch);
+        if (!cancelled) setEbayCategorySuggestions(suggestions);
+      } catch {
+        if (!cancelled) setEbayCategorySuggestions([]);
+      } finally {
+        if (!cancelled) setEbayCategorySearching(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedEbayCategorySearch, ebayStatus?.connected]);
 
   function update<K extends keyof ItemFormData>(key: K, value: ItemFormData[K]) {
     setForm((f) => (f ? { ...f, [key]: value } : f));
@@ -952,6 +988,41 @@ export function ItemDetailPage() {
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">eBay category</label>
+                <Input
+                  value={ebayCategorySearch}
+                  onChange={(e) => setEbayCategorySearch(e.target.value)}
+                  placeholder="Search eBay categories, e.g. perfume, lamp, xbox"
+                  hint="Use search for broader eBay coverage, or pick from the quick list below."
+                />
+                {ebayCategorySearching ? (
+                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                    Searching eBay categories…
+                  </div>
+                ) : ebayCategorySuggestions.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {ebayCategorySuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.categoryId}
+                        type="button"
+                        onClick={() => {
+                          setEbayCategoryTouched(true);
+                          setEbayCategoryId(suggestion.categoryId);
+                          setEbayMissingAspects([]);
+                          setEbayCategorySearch(suggestion.categoryName);
+                        }}
+                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                          ebayCategoryId === suggestion.categoryId
+                            ? 'border-teal-600 bg-teal-50 text-teal-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {suggestion.categoryName}
+                      </button>
+                    ))}
+                  </div>
+                ) : debouncedEbayCategorySearch.length >= 2 ? (
+                  <p className="mt-2 text-xs text-slate-400">No matching eBay categories found for that search.</p>
+                ) : null}
                 <select
                   value={ebayCategoryId}
                   onChange={(e) => {
