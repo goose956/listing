@@ -146,7 +146,7 @@ function injectSidebar(item: QueueItem, status: Record<string, boolean>) {
       await downloadImage(img.url, item.item_number, `${item.item_number}-${i + 1}.jpg`);
       if (i < item.images.length - 1) await sleep(400);
     }
-    btn.textContent = `✓ ${item.images.length} downloaded to Listings Assistant/${item.item_number}/`;
+    btn.textContent = `✓ ${item.images.length} downloaded to Starsella/${item.item_number}/`;
     btn.style.background = '#16a34a';
     setTimeout(() => {
       btn.textContent = 'Download all photos';
@@ -326,7 +326,7 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
   <div id="la-panel">
     <button id="la-toggle">⬅</button>
     <div class="header">
-      <div class="header-title">Listings Assistant</div>
+      <div class="header-title">Starsella</div>
       <div class="item-num">${item.item_number}</div>
       <div class="item-name">${item.title ?? 'Untitled item'}</div>
     </div>
@@ -371,7 +371,7 @@ function sleep(ms: number) {
   return new Promise<void>(r => setTimeout(r, ms));
 }
 
-// Downloads via service worker so chrome.downloads places files in Downloads/Listings Assistant/{itemNumber}/
+// Downloads via service worker so chrome.downloads places files in Downloads/Starsella/{itemNumber}/
 function downloadImage(url: string, itemNumber: string, filename: string) {
   chrome.runtime.sendMessage({ type: 'DOWNLOAD_IMAGE', url, itemNumber, filename });
 }

@@ -157,7 +157,7 @@ function showSidebar(item: QueueItem) {
   sidebar.className = 'la-sidebar';
   sidebar.innerHTML = `
     <div class="la-header">
-      <span>Listings Assistant · eBay</span>
+      <span>Starsella · eBay</span>
       <button class="la-close" id="la-close">✕</button>
     </div>
     <div class="la-body">

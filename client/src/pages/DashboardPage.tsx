@@ -283,7 +283,7 @@ function OnboardingChecklist({ stats }: { stats: DashboardStats | null }) {
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-teal-100 bg-gradient-to-br from-teal-50 to-white p-5">
-        <p className="text-base font-semibold text-slate-900">Welcome to Listings Assistant 👋</p>
+        <p className="text-base font-semibold text-slate-900">Welcome to Starsella</p>
         <p className="mt-1 text-sm text-slate-500">
           Get your first item listed in 3 steps. This guide disappears once you're up and running.
         </p>

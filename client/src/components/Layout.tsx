@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchDueQueueCount } from '../lib/items';
+import { BrandMark } from './BrandMark';
 import { cn } from './ui';
 
 const nav = [
@@ -66,10 +67,8 @@ export function Layout() {
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-sm font-bold text-white">
-              V
-            </div>
-            <span className="font-semibold tracking-tight">Listings Assistant</span>
+            <BrandMark size={32} className="shrink-0" />
+            <span className="font-semibold tracking-tight">Starsella</span>
           </div>
           <button
             type="button"
@@ -132,12 +131,10 @@ export function Layout() {
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-slate-200/80 bg-white px-3 py-5 lg:flex">
           <div className="mb-8 flex items-center gap-2.5 px-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-sm font-bold text-white shadow-sm shadow-teal-600/30">
-              V
-            </div>
+            <BrandMark size={36} className="shrink-0" />
             <div>
-              <p className="text-sm font-bold leading-tight">Listings Assistant</p>
-              <p className="text-[11px] text-slate-400">Vinted-first resale</p>
+              <p className="text-sm font-bold leading-tight">Starsella</p>
+              <p className="text-[11px] text-slate-400">Resale inventory for five-star sellers</p>
             </div>
           </div>
 

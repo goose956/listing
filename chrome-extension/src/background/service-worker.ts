@@ -30,7 +30,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Route through service worker so chrome.downloads can set a subfolder path
     chrome.downloads.download({
       url: message.url as string,
-      filename: `Listings Assistant/${message.itemNumber}/${message.filename}`,
+      filename: `Starsella/${message.itemNumber}/${message.filename}`,
       conflictAction: 'uniquify',
     });
     sendResponse({ success: true });

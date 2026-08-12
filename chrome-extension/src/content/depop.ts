@@ -121,7 +121,7 @@ function injectSidebar(item: QueueItem, status: Record<string, boolean>) {
       await downloadImage(img.url, item.item_number, `${item.item_number}-${i + 1}.jpg`);
       if (i < item.images.length - 1) await sleep(400);
     }
-    btn.textContent = `✓ ${item.images.length} downloaded to Listings Assistant/${item.item_number}/`;
+    btn.textContent = `✓ ${item.images.length} downloaded to Starsella/${item.item_number}/`;
     btn.style.background = '#16a34a';
     setTimeout(() => {
       btn.textContent = 'Download all photos';
@@ -302,7 +302,7 @@ function buildSidebarHTML(item: QueueItem, status: Record<string, boolean>): str
   <div id="la-panel">
     <button id="la-toggle">☰</button>
     <div class="header">
-      <div class="header-title">Listings Assistant · Depop</div>
+      <div class="header-title">Starsella · Depop</div>
       <div class="item-num">#${item.item_number} · ${item.title ?? ''}</div>
     </div>
     <div class="scroll-body">

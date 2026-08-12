@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { BrandMark } from '../components/BrandMark';
 import { useAuth } from '../context/AuthContext';
 import { Alert, Button, Card, Input } from '../components/ui';
 
@@ -43,11 +44,9 @@ export function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-slate-50 via-teal-50/40 to-slate-100 px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 text-xl font-bold text-white shadow-lg shadow-teal-600/30">
-            V
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Listings Assistant</h1>
-          <p className="mt-1 text-sm text-slate-500">Vinted-first resale inventory</p>
+          <BrandMark size={56} className="mx-auto mb-3" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Starsella</h1>
+          <p className="mt-1 text-sm text-slate-500">Resale inventory for five-star sellers</p>
         </div>
 
         <Card>
