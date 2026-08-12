@@ -65,9 +65,9 @@ export function Layout() {
     <div className="min-h-dvh bg-slate-50 text-slate-900">
       {/* Top bar mobile */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur lg:hidden">
-        <div className="flex h-14 items-center justify-between px-4">
+        <div className="flex h-20 items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <BrandMark size={32} className="shrink-0" />
+            <BrandMark size={64} className="shrink-0" />
             <span className="font-semibold tracking-tight">Starsella</span>
           </div>
           <button
@@ -131,7 +131,7 @@ export function Layout() {
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-slate-200/80 bg-white px-3 py-5 lg:flex">
           <div className="mb-8 flex items-center gap-2.5 px-2">
-            <BrandMark size={36} className="shrink-0" />
+            <BrandMark size={72} className="shrink-0" />
             <div>
               <p className="text-sm font-bold leading-tight">Starsella</p>
               <p className="text-[11px] text-slate-400">Resale inventory for five-star sellers</p>

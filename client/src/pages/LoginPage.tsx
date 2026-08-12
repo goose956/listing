@@ -44,7 +44,7 @@ export function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-slate-50 via-teal-50/40 to-slate-100 px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <BrandMark size={56} className="mx-auto mb-3" />
+          <BrandMark size={112} className="mx-auto mb-3" />
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Starsella</h1>
           <p className="mt-1 text-sm text-slate-500">Resale inventory for five-star sellers</p>
         </div>
