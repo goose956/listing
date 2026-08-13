@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
-import { deleteItem, fetchItems } from '../lib/items';
+import { Plus, Search, ShoppingBag } from 'lucide-react';
+import { createEbayListing, EbayListingError, getEbayStatus } from '../lib/ebay';
+import { deleteItem, fetchItem, fetchItems } from '../lib/items';
 import type { Item, ItemStatus } from '../types';
 import { STATUS_LABELS } from '../types';
 import {
@@ -11,6 +12,8 @@ import {
   Input,
   LoadingScreen,
   PageHeader,
+  Spinner,
+  Toast,
   cn,
 } from '../components/ui';
 import { ItemCard } from '../components/ItemCard';
@@ -29,16 +32,33 @@ export function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState(searchParams.get('q') || '');
   const [debounced, setDebounced] = useState(searchParams.get('q') || '');
   const [status, setStatus] = useState<'all' | ItemStatus>(
     (searchParams.get('status') as ItemStatus) || 'all'
   );
+  const [ebayConnected, setEbayConnected] = useState(false);
+  const [listingItemId, setListingItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getEbayStatus()
+      .then((data) => {
+        if (!cancelled) setEbayConnected(Boolean(data.connected));
+      })
+      .catch(() => {
+        if (!cancelled) setEbayConnected(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Keep URL in sync with filters so dashboard links work
   useEffect(() => {
@@ -87,8 +107,50 @@ export function InventoryPage() {
     }
   }
 
+  function flash(message: string) {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  }
+
+  async function handleListOnEbay(item: Item) {
+    if (listingItemId) return;
+
+    const startPrice = item.platform_prices?.ebay ?? item.list_price ?? item.suggested_price;
+    if (startPrice == null || Number.isNaN(Number(startPrice)) || Number(startPrice) <= 0) {
+      setError(`Add a valid list price before publishing ${item.item_number} to eBay.`);
+      return;
+    }
+
+    setListingItemId(item.id);
+    setError(null);
+    try {
+      const result = await createEbayListing({
+        itemId: item.id,
+        listingType: 'FIXED_PRICE',
+        startPrice: Number(startPrice),
+      });
+
+      const refreshed = await fetchItem(item.id);
+      if (refreshed) {
+        setItems((current) => current.map((entry) => (entry.id === item.id ? refreshed : entry)));
+      }
+
+      flash(`Published ${item.item_number} to eBay as ${result.listingId}`);
+    } catch (err) {
+      if (err instanceof EbayListingError && err.missingAspects.length > 0) {
+        setError(`eBay needs more specifics for ${item.item_number}: ${err.missingAspects.join(', ')}.`);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to publish item to eBay');
+      }
+    } finally {
+      setListingItemId(null);
+    }
+  }
+
   return (
     <div>
+      <Toast message={toast} />
+
       <PageHeader
         title="Inventory"
         subtitle={countLabel}
@@ -166,6 +228,24 @@ export function InventoryPage() {
               key={item.id}
               item={item}
               onDelete={() => handleDelete(item.id, item.item_number)}
+              footerAction={
+                ebayConnected && item.status === 'listed' && !item.ebay_listing_id ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={listingItemId != null}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void handleListOnEbay(item);
+                    }}
+                  >
+                    {listingItemId === item.id ? <Spinner className="border-t-teal-600" /> : <ShoppingBag size={14} />}
+                    {item.posted_marketplaces.includes('ebay') ? 'Relist on eBay' : 'List on eBay'}
+                  </Button>
+                ) : undefined
+              }
             />
           ))}
         </div>

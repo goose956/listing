@@ -10,9 +10,11 @@ import { ImageViewer } from './ImageViewer';
 export function ItemCard({
   item,
   onDelete,
+  footerAction,
 }: {
   item: Item;
   onDelete?: () => void;
+  footerAction?: React.ReactNode;
 }) {
   return (
     <Link
@@ -83,8 +85,9 @@ export function ItemCard({
           </span>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <MarketplaceBadges marketplaces={item.posted_marketplaces} />
+          {footerAction ? <div className="relative z-10">{footerAction}</div> : null}
         </div>
       </div>
     </Link>
