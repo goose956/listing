@@ -3,6 +3,7 @@ import { MapPin, ImageIcon, Trash2 } from 'lucide-react';
 import type { Item } from '../types';
 import { STATUS_LABELS } from '../types';
 import { formatMoney, storageLabel } from '../lib/format';
+import { MarketplaceBadges } from './MarketplaceBadges';
 import { Badge, cn, statusTone } from './ui';
 import { ImageViewer } from './ImageViewer';
 
@@ -80,6 +81,10 @@ export function ItemCard({
             <MapPin size={12} />
             {storageLabel(item)}
           </span>
+        </div>
+
+        <div className="mt-2">
+          <MarketplaceBadges marketplaces={item.posted_marketplaces} />
         </div>
       </div>
     </Link>

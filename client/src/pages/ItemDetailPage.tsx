@@ -69,6 +69,7 @@ import {
   statusTone,
 } from '../components/ui';
 import { ImageViewer } from '../components/ImageViewer';
+import { MarketplaceBadges } from '../components/MarketplaceBadges';
 
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -428,7 +429,7 @@ export function ItemDetailPage() {
     if (!id) return;
     setMarkingListed(true);
     try {
-      const updated = await markItemListed(id);
+      const updated = await markItemListed(id, 'vinted');
       setItem(updated);
       setForm(itemToForm(updated));
       flash('Marked as listed');
@@ -508,6 +509,7 @@ export function ItemDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-mono text-lg font-bold text-teal-700">{item.item_number}</h1>
             <Badge tone={statusTone(item.status)}>{STATUS_LABELS[item.status]}</Badge>
+            <MarketplaceBadges marketplaces={item.posted_marketplaces} />
           </div>
           <p className="truncate text-sm text-slate-500">
             Added {formatDate(item.date_added)} · {storageLabel(item)}

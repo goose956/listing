@@ -3,6 +3,15 @@ import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmi
 
 export const extensionRouter = Router();
 
+function mergePostedMarketplaces(existing: unknown, platform: string): string[] {
+  const current = Array.isArray(existing)
+    ? existing.filter((value): value is string => typeof value === 'string')
+    : [];
+  const normalizedPlatform = platform.trim().toLowerCase();
+  if (!normalizedPlatform) return current;
+  return [...new Set([...current, normalizedPlatform])];
+}
+
 async function resolveUserId(authHeader?: string): Promise<string | null> {
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice('Bearer '.length);
@@ -94,7 +103,7 @@ extensionRouter.post('/queue/:queueId/complete', async (req, res) => {
 
   const { data: entry, error: fetchError } = await getSupabaseAdmin()
     .from('listing_queue')
-    .select('id, item_id, user_id')
+    .select('id, item_id, user_id, platform')
     .eq('id', queueId)
     .eq('user_id', userId)
     .maybeSingle();
@@ -108,9 +117,18 @@ extensionRouter.post('/queue/:queueId/complete', async (req, res) => {
     .update({ status: 'completed', completed_at: now })
     .eq('id', queueId);
 
+  const { data: item } = await getSupabaseAdmin()
+    .from('items')
+    .select('posted_marketplaces')
+    .eq('id', (entry as any).item_id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const postedMarketplaces = mergePostedMarketplaces(item?.posted_marketplaces, (entry as any).platform ?? 'vinted');
+
   await getSupabaseAdmin()
     .from('items')
-    .update({ status: 'listed', listed_date: now })
+    .update({ status: 'listed', listed_date: now, posted_marketplaces: postedMarketplaces })
     .eq('id', (entry as any).item_id)
     .eq('user_id', userId);
 

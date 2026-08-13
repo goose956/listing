@@ -56,6 +56,7 @@ export interface Item {
   created_at: string;
   updated_at: string;
   platform_prices: Record<string, number>;
+  posted_marketplaces: string[];
   // eBay listing fields
   ebay_listing_id?: string | null;
   ebay_offer_id?: string | null;

@@ -86,7 +86,7 @@ export function QueuePage() {
   async function handleComplete(entry: ListingQueueEntry) {
     setBusyId(entry.id);
     try {
-      await completeQueueEntry(entry.id, entry.item_id);
+      await completeQueueEntry(entry.id, entry.item_id, entry.platform);
       flash('Marked listed');
       await load();
     } catch (err) {

@@ -121,14 +121,40 @@ function normalizeItem(row: Record<string, unknown>): Item {
     sorted.find((i) => i.is_primary)?.public_url || sorted[0]?.public_url || null;
   const purchase = Number(row.purchase_price) || 0;
   const sale = row.sale_price != null ? Number(row.sale_price) : null;
+  const postedMarketplaces = Array.isArray(row.posted_marketplaces)
+    ? row.posted_marketplaces.filter((value): value is string => typeof value === 'string')
+    : [];
 
   return {
     ...(row as unknown as Item),
+    posted_marketplaces: postedMarketplaces,
     item_images: sorted,
     primary_image_url: primary,
     image_count: sorted.length,
     profit: sale != null ? sale - purchase : null,
   };
+}
+
+function mergePostedMarketplaces(existing: unknown, platform: string): string[] {
+  const current = Array.isArray(existing)
+    ? existing.filter((value): value is string => typeof value === 'string')
+    : [];
+  const normalizedPlatform = platform.trim().toLowerCase();
+  if (!normalizedPlatform) return current;
+  return [...new Set([...current, normalizedPlatform])];
+}
+
+async function loadPostedMarketplaces(itemId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('items')
+    .select('posted_marketplaces')
+    .eq('id', itemId)
+    .single();
+
+  if (error) throw error;
+  return Array.isArray(data?.posted_marketplaces)
+    ? data.posted_marketplaces.filter((value): value is string => typeof value === 'string')
+    : [];
 }
 
 export async function createItem(
@@ -322,9 +348,11 @@ export async function scheduleListing(
 
 export async function completeQueueEntry(
   queueId: string,
-  itemId: string
+  itemId: string,
+  platform = 'vinted'
 ): Promise<void> {
   const now = new Date().toISOString();
+  const postedMarketplaces = mergePostedMarketplaces(await loadPostedMarketplaces(itemId), platform);
   const { error: qErr } = await supabase
     .from('listing_queue')
     .update({ status: 'completed', completed_at: now })
@@ -333,7 +361,7 @@ export async function completeQueueEntry(
 
   const { error: iErr } = await supabase
     .from('items')
-    .update({ status: 'listed', listed_date: now })
+    .update({ status: 'listed', listed_date: now, posted_marketplaces: postedMarketplaces })
     .eq('id', itemId);
   if (iErr) throw iErr;
 }
@@ -354,10 +382,15 @@ export async function cancelQueueEntry(queueId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function markItemListed(itemId: string): Promise<Item> {
+export async function markItemListed(itemId: string, platform = 'vinted'): Promise<Item> {
+  const postedMarketplaces = mergePostedMarketplaces(await loadPostedMarketplaces(itemId), platform);
   const { data, error } = await supabase
     .from('items')
-    .update({ status: 'listed', listed_date: new Date().toISOString() })
+    .update({
+      status: 'listed',
+      listed_date: new Date().toISOString(),
+      posted_marketplaces: postedMarketplaces,
+    })
     .eq('id', itemId)
     .select('*, item_images(*)')
     .single();

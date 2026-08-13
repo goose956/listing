@@ -23,6 +23,15 @@ import crypto from 'crypto';
 
 export const ebayRouter = Router();
 
+function mergePostedMarketplaces(existing: unknown, platform: string): string[] {
+  const current = Array.isArray(existing)
+    ? existing.filter((value): value is string => typeof value === 'string')
+    : [];
+  const normalizedPlatform = platform.trim().toLowerCase();
+  if (!normalizedPlatform) return current;
+  return [...new Set([...current, normalizedPlatform])];
+}
+
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
 async function resolveUserId(authHeader?: string): Promise<string | null> {
@@ -746,6 +755,7 @@ ebayRouter.post('/list', async (req: Request, res: Response) => {
         ebay_offer_id: offerId,
         ebay_listing_url: listingUrl,
         ebay_marketplace: marketplace,
+        posted_marketplaces: mergePostedMarketplaces(item.posted_marketplaces, 'ebay'),
         status: 'listed',
       })
       .eq('id', itemId)
