@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, ShoppingBag } from 'lucide-react';
+import { Download, Plus, Search, ShoppingBag } from 'lucide-react';
 import { createEbayListing, EbayListingError, getEbayStatus } from '../lib/ebay';
 import { deleteItem, fetchItem, fetchItems } from '../lib/items';
 import type { Item, ItemStatus } from '../types';
@@ -40,6 +40,7 @@ export function InventoryPage() {
   );
   const [ebayConnected, setEbayConnected] = useState(false);
   const [listingItemId, setListingItemId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -147,6 +148,35 @@ export function InventoryPage() {
     }
   }
 
+  async function handleExportInventory() {
+    setExporting(true);
+    setError(null);
+    try {
+      const exportItems = await fetchItems();
+      if (exportItems.length === 0) {
+        flash('No inventory items to export');
+        return;
+      }
+
+      const csv = buildInventoryCsv(exportItems);
+      const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `starsella-inventory-${stamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      flash(`Exported ${exportItems.length} items to spreadsheet`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export inventory');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
       <Toast message={toast} />
@@ -155,12 +185,23 @@ export function InventoryPage() {
         title="Inventory"
         subtitle={countLabel}
         actions={
-          <Link to="/add">
-            <Button>
-              <Plus size={18} />
-              Add item
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={exporting}
+              onClick={handleExportInventory}
+            >
+              {exporting ? <Spinner /> : <Download size={18} />}
+              Export spreadsheet
             </Button>
-          </Link>
+            <Link to="/add">
+              <Button>
+                <Plus size={18} />
+                Add item
+              </Button>
+            </Link>
+          </>
         }
       />
 
@@ -252,4 +293,43 @@ export function InventoryPage() {
       )}
     </div>
   );
+}
+
+function buildInventoryCsv(items: Item[]): string {
+  const maxImages = items.reduce((max, item) => Math.max(max, item.item_images?.length ?? 0), 0);
+  const headers = [
+    'item_number',
+    'headline',
+    'text',
+    'status',
+    'listed_price',
+    'posted_marketplaces',
+    'primary_image_url',
+    'image_links',
+    ...Array.from({ length: maxImages }, (_, index) => `image_${index + 1}`),
+  ];
+
+  const rows = items.map((item) => {
+    const imageUrls = (item.item_images ?? []).map((image) => image.public_url).filter(Boolean);
+    return [
+      item.item_number,
+      item.title ?? '',
+      item.description ?? '',
+      STATUS_LABELS[item.status],
+      item.list_price ?? item.suggested_price ?? '',
+      item.posted_marketplaces.join(', '),
+      item.primary_image_url ?? imageUrls[0] ?? '',
+      imageUrls.join('\n'),
+      ...Array.from({ length: maxImages }, (_, index) => imageUrls[index] ?? ''),
+    ];
+  });
+
+  return [headers, ...rows]
+    .map((row) => row.map(csvCell).join(','))
+    .join('\r\n');
+}
+
+function csvCell(value: string | number | null | undefined): string {
+  const text = value == null ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
 }
