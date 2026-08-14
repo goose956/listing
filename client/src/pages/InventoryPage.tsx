@@ -40,7 +40,7 @@ export function InventoryPage() {
   );
   const [ebayConnected, setEbayConnected] = useState(false);
   const [listingItemId, setListingItemId] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'filtered' | 'all' | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -148,32 +148,25 @@ export function InventoryPage() {
     }
   }
 
-  async function handleExportInventory() {
-    setExporting(true);
+  async function handleExportInventory(scope: 'filtered' | 'all') {
+    setExporting(scope);
     setError(null);
     try {
-      const exportItems = await fetchItems();
+      const exportItems = scope === 'all'
+        ? await fetchItems()
+        : items;
+
       if (exportItems.length === 0) {
         flash('No inventory items to export');
         return;
       }
 
-      const csv = buildInventoryCsv(exportItems);
-      const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const stamp = new Date().toISOString().slice(0, 10);
-      link.href = url;
-      link.download = `starsella-inventory-${stamp}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      flash(`Exported ${exportItems.length} items to spreadsheet`);
+      downloadInventoryCsv(exportItems, scope);
+      flash(`Exported ${exportItems.length} ${scope === 'all' ? 'inventory' : 'filtered'} items to spreadsheet`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to export inventory');
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   }
 
@@ -189,11 +182,20 @@ export function InventoryPage() {
             <Button
               type="button"
               variant="secondary"
-              disabled={exporting}
-              onClick={handleExportInventory}
+              disabled={exporting != null || items.length === 0}
+              onClick={() => void handleExportInventory('filtered')}
             >
-              {exporting ? <Spinner /> : <Download size={18} />}
-              Export spreadsheet
+              {exporting === 'filtered' ? <Spinner /> : <Download size={18} />}
+              Export filtered
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={exporting != null}
+              onClick={() => void handleExportInventory('all')}
+            >
+              {exporting === 'all' ? <Spinner /> : <Download size={18} />}
+              Export all
             </Button>
             <Link to="/add">
               <Button>
@@ -295,6 +297,20 @@ export function InventoryPage() {
   );
 }
 
+function downloadInventoryCsv(items: Item[], scope: 'filtered' | 'all') {
+  const csv = buildInventoryCsv(items);
+  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `starsella-inventory-${scope}-${stamp}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function buildInventoryCsv(items: Item[]): string {
   const maxImages = items.reduce((max, item) => Math.max(max, item.item_images?.length ?? 0), 0);
   const headers = [
@@ -302,9 +318,29 @@ function buildInventoryCsv(items: Item[]): string {
     'headline',
     'text',
     'status',
+    'brand',
+    'product_type',
+    'category',
+    'size',
+    'colour',
+    'condition',
+    'purchase_price',
+    'suggested_price',
     'listed_price',
+    'sale_price',
+    'accept_offers_above',
     'posted_marketplaces',
+    'storage_container',
+    'storage_shelf',
+    'storage_box',
+    'storage_notes',
+    'date_added',
+    'listed_date',
+    'sold_date',
+    'ebay_listing_id',
+    'ebay_listing_url',
     'primary_image_url',
+    'image_count',
     'image_links',
     ...Array.from({ length: maxImages }, (_, index) => `image_${index + 1}`),
   ];
@@ -316,9 +352,29 @@ function buildInventoryCsv(items: Item[]): string {
       item.title ?? '',
       item.description ?? '',
       STATUS_LABELS[item.status],
+      item.brand ?? '',
+      item.product_type ?? '',
+      item.category ?? '',
+      item.size ?? '',
+      item.colour ?? '',
+      item.condition ?? '',
+      item.purchase_price ?? '',
+      item.suggested_price ?? '',
       item.list_price ?? item.suggested_price ?? '',
+      item.sale_price ?? '',
+      item.accept_offers_above ?? '',
       item.posted_marketplaces.join(', '),
+      item.storage_container ?? '',
+      item.storage_shelf ?? '',
+      item.storage_box ?? '',
+      item.storage_notes ?? '',
+      item.date_added ?? '',
+      item.listed_date ?? '',
+      item.sold_date ?? '',
+      item.ebay_listing_id ?? '',
+      item.ebay_listing_url ?? '',
       item.primary_image_url ?? imageUrls[0] ?? '',
+      imageUrls.length,
       imageUrls.join('\n'),
       ...Array.from({ length: maxImages }, (_, index) => imageUrls[index] ?? ''),
     ];
