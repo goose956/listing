@@ -36,6 +36,7 @@ const BACKGROUND_OPTIONS: Array<{
   { value: 'original', label: 'Keep original background' },
   { value: 'white', label: 'Clean white' },
   { value: 'light_gray', label: 'Light grey' },
+  { value: 'light_gray_textured', label: 'Light grey textured' },
   { value: 'dark_gray', label: 'Dark grey' },
   { value: 'black', label: 'Black' },
 ];

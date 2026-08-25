@@ -4,11 +4,12 @@ import sharp from 'sharp';
 
 export const imagesRouter = Router();
 
-type BackgroundColor = 'white' | 'light_gray' | 'dark_gray' | 'black';
+type BackgroundColor = 'white' | 'light_gray' | 'light_gray_textured' | 'dark_gray' | 'black';
 
 const BACKGROUND_RGB: Record<BackgroundColor, { r: number; g: number; b: number }> = {
   white: { r: 255, g: 255, b: 255 },
   light_gray: { r: 229, g: 231, b: 235 },
+  light_gray_textured: { r: 229, g: 231, b: 235 },
   dark_gray: { r: 71, g: 85, b: 105 },
   black: { r: 15, g: 23, b: 42 },
 };
@@ -27,10 +28,34 @@ const upload = multer({
 
 function parseBackgroundColor(value: unknown): BackgroundColor | null {
   if (typeof value !== 'string') return null;
-  if (value === 'white' || value === 'light_gray' || value === 'dark_gray' || value === 'black') {
+  if (
+    value === 'white'
+    || value === 'light_gray'
+    || value === 'light_gray_textured'
+    || value === 'dark_gray'
+    || value === 'black'
+  ) {
     return value;
   }
   return null;
+}
+
+function pseudoNoise(x: number, y: number) {
+  const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return seed - Math.floor(seed);
+}
+
+function texturedGrayRgb(x: number, y: number) {
+  const base = BACKGROUND_RGB.light_gray_textured;
+  const grain = (pseudoNoise(x, y) - 0.5) * 10;
+  const wave = Math.sin((x + y) / 18) * 3 + Math.cos(y / 23) * 2;
+  const tint = Math.max(-12, Math.min(12, grain + wave));
+
+  return {
+    r: Math.max(0, Math.min(255, Math.round(base.r + tint))),
+    g: Math.max(0, Math.min(255, Math.round(base.g + tint))),
+    b: Math.max(0, Math.min(255, Math.round(base.b + tint))),
+  };
 }
 
 function averageCornerSample(
@@ -192,7 +217,6 @@ function applyBackgroundColor(
   backgroundColor: BackgroundColor
 ) {
   const mask = detectBackgroundMask(data, width, height, channels);
-  const target = BACKGROUND_RGB[backgroundColor];
   const output = Buffer.from(data);
 
   for (let pixelIndex = 0; pixelIndex < width * height; pixelIndex += 1) {
@@ -200,6 +224,12 @@ function applyBackgroundColor(
     if (strength <= 0) continue;
 
     const index = pixelIndex * channels;
+    const x = pixelIndex % width;
+    const y = Math.floor(pixelIndex / width);
+    const target = backgroundColor === 'light_gray_textured'
+      ? texturedGrayRgb(x, y)
+      : BACKGROUND_RGB[backgroundColor];
+
     output[index] = Math.round(output[index] * (1 - strength) + target.r * strength);
     output[index + 1] = Math.round(output[index + 1] * (1 - strength) + target.g * strength);
     output[index + 2] = Math.round(output[index + 2] * (1 - strength) + target.b * strength);

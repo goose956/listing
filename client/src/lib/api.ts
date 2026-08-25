@@ -45,7 +45,7 @@ export async function generateListing(
   return res.json();
 }
 
-export type EnhanceBackgroundColor = 'white' | 'light_gray' | 'dark_gray' | 'black';
+export type EnhanceBackgroundColor = 'white' | 'light_gray' | 'light_gray_textured' | 'dark_gray' | 'black';
 
 export async function enhanceImage(
   file: File | Blob,
