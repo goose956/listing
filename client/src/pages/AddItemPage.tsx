@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Camera, ImagePlus, Save, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { analyseImages, enhanceImage } from '../lib/api';
+import { analyseImages, enhanceImage, type EnhanceBackgroundColor } from '../lib/api';
 import { clearItemImages, createItem, deleteItem, updateItem, uploadItemImage } from '../lib/items';
 import {
   CATEGORIES,
@@ -29,6 +29,17 @@ interface LocalPhoto {
   enhanced?: boolean;
 }
 
+const BACKGROUND_OPTIONS: Array<{
+  value: 'original' | EnhanceBackgroundColor;
+  label: string;
+}> = [
+  { value: 'original', label: 'Keep original background' },
+  { value: 'white', label: 'Clean white' },
+  { value: 'light_gray', label: 'Light grey' },
+  { value: 'dark_gray', label: 'Dark grey' },
+  { value: 'black', label: 'Black' },
+];
+
 export function AddItemPage() {
   const { user, isPro, itemCount, itemLimit } = useAuth();
   const atItemLimit = !isPro && itemLimit != null && itemCount >= itemLimit;
@@ -47,6 +58,7 @@ export function AddItemPage() {
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<'photos' | 'details'>('photos');
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [backgroundChoice, setBackgroundChoice] = useState<'original' | EnhanceBackgroundColor>('original');
 
   function update<K extends keyof ItemFormData>(key: K, value: ItemFormData[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -101,7 +113,10 @@ export function AddItemPage() {
     try {
       const updated: LocalPhoto[] = [];
       for (const photo of photos) {
-        const blob = await enhanceImage(photo.file);
+        const blob = await enhanceImage(
+          photo.file,
+          backgroundChoice === 'original' ? undefined : backgroundChoice
+        );
         const file = new File(
           [blob],
           photo.file.name.replace(/\.\w+$/, '') + '-enhanced.jpg',
@@ -365,6 +380,19 @@ export function AddItemPage() {
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
+          <div className="min-w-[220px] flex-1 sm:max-w-xs">
+            <Select
+              label="Background finish"
+              value={backgroundChoice}
+              onChange={(e) => setBackgroundChoice(e.target.value as 'original' | EnhanceBackgroundColor)}
+            >
+              {BACKGROUND_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
           <Button
             type="button"
             variant="secondary"
@@ -372,7 +400,7 @@ export function AddItemPage() {
             onClick={handleEnhanceAll}
           >
             {enhancing ? <Spinner /> : <Wand2 size={16} />}
-            Enhance lighting
+            {backgroundChoice === 'original' ? 'Enhance lighting' : 'Enhance + change background'}
           </Button>
           <Button
             type="button"
@@ -392,7 +420,7 @@ export function AddItemPage() {
           </Button>
         </div>
         <p className="mt-2 text-xs text-slate-400">
-          Enhancement improves brightness/contrast only — it will not hide damage or change colours.
+          Best for photos shot on solid black or white backdrops. Products stay unchanged; only lighting and the plain background are adjusted.
         </p>
       </Card>
 

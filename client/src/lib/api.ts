@@ -45,9 +45,17 @@ export async function generateListing(
   return res.json();
 }
 
-export async function enhanceImage(file: File | Blob): Promise<Blob> {
+export type EnhanceBackgroundColor = 'white' | 'light_gray' | 'dark_gray' | 'black';
+
+export async function enhanceImage(
+  file: File | Blob,
+  backgroundColor?: EnhanceBackgroundColor
+): Promise<Blob> {
   const form = new FormData();
   form.append('image', file);
+  if (backgroundColor) {
+    form.append('backgroundColor', backgroundColor);
+  }
   const res = await fetch(`${API_BASE}/api/images/enhance`, {
     method: 'POST',
     body: form,
