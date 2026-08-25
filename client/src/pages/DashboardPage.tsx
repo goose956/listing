@@ -50,18 +50,29 @@ export function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [s, items, q] = await Promise.all([
+        const [statsResult, itemsResult, queueResult] = await Promise.allSettled([
           fetchDashboardStats(user.id),
           fetchItems({ limit: 6 }),
           fetchQueue(),
         ]);
         if (cancelled) return;
-        setStats(s);
-        setRecent(items);
-        setQueue(q.slice(0, 5));
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+
+        if (statsResult.status === 'fulfilled') {
+          setStats(statsResult.value);
+        }
+        if (itemsResult.status === 'fulfilled') {
+          setRecent(itemsResult.value);
+        }
+        if (queueResult.status === 'fulfilled') {
+          setQueue(queueResult.value.slice(0, 5));
+        }
+
+        const failures = [statsResult, itemsResult, queueResult].filter(
+          (result): result is PromiseRejectedResult => result.status === 'rejected'
+        );
+
+        if (failures.length > 0) {
+          setError(getDashboardErrorMessage(failures[0].reason));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -94,9 +105,11 @@ export function DashboardPage() {
         <div className="mb-4">
           <Alert>
             {error}
-            <p className="mt-1 text-xs opacity-80">
-              If this is a fresh setup, run the SQL migration in Supabase first.
-            </p>
+            {getDashboardSetupHint(error) ? (
+              <p className="mt-1 text-xs opacity-80">
+                {getDashboardSetupHint(error)}
+              </p>
+            ) : null}
           </Alert>
         </div>
       )}
@@ -251,6 +264,32 @@ export function DashboardPage() {
       </div>
     </div>
   );
+}
+
+function getDashboardErrorMessage(reason: unknown): string {
+  if (reason instanceof Error) return reason.message;
+  if (typeof reason === 'object' && reason && 'message' in reason && typeof reason.message === 'string') {
+    return reason.message;
+  }
+  return 'Failed to load part of the dashboard';
+}
+
+function getDashboardSetupHint(message: string): string | null {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('get_dashboard_stats')) {
+    return 'Dashboard stats function is missing in Supabase. Run the base SQL migrations and refresh.';
+  }
+
+  if (normalized.includes('posted_marketplaces')) {
+    return 'The posted marketplaces column is missing in Supabase. Run migration 010 and refresh.';
+  }
+
+  if (normalized.includes('relation') && normalized.includes('does not exist')) {
+    return 'A required Supabase table or view is missing. Run the SQL migrations and refresh.';
+  }
+
+  return null;
 }
 
 // ── Onboarding checklist (shown when user has no items yet) ───────────────────

@@ -275,8 +275,52 @@ export async function fetchDashboardStats(userId: string): Promise<DashboardStat
   const { data, error } = await supabase.rpc('get_dashboard_stats', {
     p_user_id: userId,
   });
-  if (error) throw error;
+  if (error) {
+    if (!isMissingDashboardRpcError(error)) throw error;
+
+    const [items, queue] = await Promise.all([
+      fetchItems(),
+      fetchQueue(),
+    ]);
+
+    return buildDashboardStatsFallback(items, queue.length);
+  }
   return data as DashboardStats;
+}
+
+function isMissingDashboardRpcError(error: { code?: string; message?: string; details?: string | null }): boolean {
+  const message = `${error.message ?? ''} ${error.details ?? ''}`.toLowerCase();
+  return error.code === 'PGRST202'
+    || message.includes('get_dashboard_stats')
+    || message.includes('function') && message.includes('not found');
+}
+
+function buildDashboardStatsFallback(items: Item[], queuePending: number): DashboardStats {
+  const activeItems = items.filter((item) => item.status !== 'archived');
+  const soldItems = items.filter((item) => item.status === 'sold' && item.sale_price != null);
+  const soldProfits = soldItems
+    .map((item) => Number(item.sale_price) - Number(item.purchase_price ?? 0));
+
+  return {
+    total_items: activeItems.length,
+    new_items: items.filter((item) => item.status === 'new').length,
+    ready_for_listing: items.filter((item) => item.status === 'ready_for_listing').length,
+    listed: items.filter((item) => item.status === 'listed').length,
+    sold: items.filter((item) => item.status === 'sold').length,
+    archived: items.filter((item) => item.status === 'archived').length,
+    total_profit: soldProfits.reduce((sum, value) => sum + value, 0),
+    total_purchase_cost: activeItems.reduce((sum, item) => sum + Number(item.purchase_price ?? 0), 0),
+    total_inventory_value: items
+      .filter((item) => item.status === 'new' || item.status === 'ready_for_listing' || item.status === 'listed')
+      .reduce((sum, item) => sum + Number(item.list_price ?? item.suggested_price ?? 0), 0),
+    average_sale_price: soldItems.length > 0
+      ? soldItems.reduce((sum, item) => sum + Number(item.sale_price ?? 0), 0) / soldItems.length
+      : 0,
+    average_profit: soldProfits.length > 0
+      ? soldProfits.reduce((sum, value) => sum + value, 0) / soldProfits.length
+      : 0,
+    queue_pending: queuePending,
+  };
 }
 
 // ---- Listing queue ----
