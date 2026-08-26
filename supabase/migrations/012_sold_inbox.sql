@@ -41,6 +41,21 @@ CREATE TABLE IF NOT EXISTS sale_inbox_events (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE sale_inbox_events
+  ADD COLUMN IF NOT EXISTS buyer_name TEXT,
+  ADD COLUMN IF NOT EXISTS buyer_address_lines TEXT[],
+  ADD COLUMN IF NOT EXISTS buyer_postcode TEXT,
+  ADD COLUMN IF NOT EXISTS buyer_country TEXT;
+
+ALTER TABLE sale_inbox_events
+  DROP CONSTRAINT IF EXISTS sale_inbox_events_processing_status_check;
+
+ALTER TABLE sale_inbox_events
+  ADD CONSTRAINT sale_inbox_events_processing_status_check
+  CHECK (processing_status IN ('received', 'matched', 'auto_marked_sold', 'manually_marked_sold', 'needs_review', 'ignored', 'error'));
+
+DROP TRIGGER IF EXISTS trg_sale_inbox_events_updated_at ON sale_inbox_events;
+
 CREATE TRIGGER trg_sale_inbox_events_updated_at
   BEFORE UPDATE ON sale_inbox_events
   FOR EACH ROW
@@ -54,9 +69,13 @@ CREATE INDEX IF NOT EXISTS idx_sale_inbox_events_status
 
 ALTER TABLE sale_inbox_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own sale inbox events" ON sale_inbox_events;
+
 CREATE POLICY "Users can view own sale inbox events"
   ON sale_inbox_events FOR SELECT
   USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own sale inbox events" ON sale_inbox_events;
 
 CREATE POLICY "Users can update own sale inbox events"
   ON sale_inbox_events FOR UPDATE
