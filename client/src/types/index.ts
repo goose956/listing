@@ -150,6 +150,32 @@ export interface AiListing {
   price_rationale?: string;
 }
 
+export type PriceCheckBasis = 'barcode_match' | 'visual_match' | 'brand_model_match' | 'category_estimate';
+
+export interface PriceCheckResult {
+  barcode?: string | null;
+  product_name?: string | null;
+  brand?: string | null;
+  product_type?: string | null;
+  category?: string | null;
+  model_number?: string | null;
+  colour?: string | null;
+  size?: string | null;
+  condition_summary?: string | null;
+  pricing_basis?: PriceCheckBasis | null;
+  estimated_retail_price?: number | null;
+  estimated_resale_listing_low?: number | null;
+  estimated_resale_listing_high?: number | null;
+  estimated_sold_price_low?: number | null;
+  estimated_sold_price_high?: number | null;
+  recommended_max_buy_price?: number | null;
+  confidence?: number | null;
+  summary?: string | null;
+  evidence?: string[] | null;
+  search_keywords?: string[] | null;
+  disclaimer?: string | null;
+}
+
 export interface ItemFormData {
   category: string;
   brand: string;

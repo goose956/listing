@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import OpenAI from 'openai';
-import { analyzeItemPrompt, listingGenerationPrompt } from '../services/prompts.js';
+import { analyzeItemPrompt, listingGenerationPrompt, priceCheckPrompt } from '../services/prompts.js';
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin.js';
 import { createImageCollage } from '../lib/imageCollage.js';
 import { isStripeConfigured, FREE_AI_CREDITS } from '../lib/stripe.js';
@@ -150,6 +150,81 @@ aiRouter.post('/analyse', async (req, res) => {
     const message = err instanceof Error ? err.message : 'AI analysis failed';
     console.error('AI analyse error:', message);
     await logError({ userId: null, type: 'ai_analyse', message });
+    res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * Estimate retail and resale pricing from product photos plus an optional barcode hint.
+ * Body: { imageUrls: string[], barcode?: string, purchasePrice?: number, userNotes?: string }
+ */
+aiRouter.post('/price-check', async (req, res) => {
+  try {
+    const { imageUrls, barcode, purchasePrice, userNotes } = req.body as {
+      imageUrls?: string[];
+      barcode?: string;
+      purchasePrice?: number;
+      userNotes?: string;
+    };
+
+    if (!imageUrls?.length) {
+      return res.status(400).json({ error: 'At least one image is required for a price check' });
+    }
+
+    const userId = await resolveUserId(req.headers.authorization);
+
+    const creditBlock = await checkAICredits(userId);
+    if (creditBlock) return res.status(creditBlock.status).json(creditBlock);
+
+    const apiKey = await resolveOpenAIKey(userId);
+    if (!apiKey) {
+      return res.status(400).json({
+        error:
+          'No OpenAI API key configured. Add one in Settings, or set OPENAI_API_KEY in server/.env.',
+      });
+    }
+
+    const urls = imageUrls.slice(0, 4);
+    const openai = getOpenAI(apiKey);
+    const collageUri = await createImageCollage(urls, { thumbSize: 512 });
+
+    const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+      {
+        type: 'text',
+        text: priceCheckPrompt({
+          barcode: barcode?.trim() || null,
+          purchasePrice,
+          userNotes: userNotes?.trim() || null,
+        }),
+      },
+      {
+        type: 'image_url' as const,
+        image_url: { url: collageUri, detail: 'low' as const },
+      },
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini',
+      messages: [{ role: 'user', content }],
+      max_tokens: 1200,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+    });
+
+    const raw = response.choices[0]?.message?.content || '{}';
+    let result: Record<string, unknown>;
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      result = { raw, error: 'Failed to parse AI response' };
+    }
+
+    res.json({ result, model: response.model });
+    await incrementAICredits(userId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Price check failed';
+    console.error('AI price check error:', message);
+    await logError({ userId: null, type: 'ai_price_check', message });
     res.status(500).json({ error: message });
   }
 });

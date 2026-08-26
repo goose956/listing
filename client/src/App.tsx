@@ -10,6 +10,7 @@ import { ItemDetailPage } from './pages/ItemDetailPage';
 import { QueuePage } from './pages/QueuePage';
 import { StoragePage } from './pages/StoragePage';
 import { SoldInboxPage } from './pages/SoldInboxPage';
+import { PriceCheckPage } from './pages/PriceCheckPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminPage } from './pages/AdminPage';
 import { BillingPage } from './pages/BillingPage';
@@ -37,6 +38,7 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="add" element={<AddItemPage />} />
+        <Route path="price-check" element={<PriceCheckPage />} />
         <Route path="items/:id" element={<ItemDetailPage />} />
         <Route path="queue" element={<QueuePage />} />
         <Route path="sold-inbox" element={<SoldInboxPage />} />

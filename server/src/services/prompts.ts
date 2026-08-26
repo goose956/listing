@@ -29,6 +29,55 @@ ${purchasePrice != null ? `- Purchase price was £${purchasePrice}. Factor this 
 - tags should be terms buyers actually search (brand, type, colour, style).`;
 }
 
+export function priceCheckPrompt(input: {
+  barcode?: string | null;
+  purchasePrice?: number | null;
+  userNotes?: string | null;
+}): string {
+  return `You are an expert UK retail and resale price checker for second-hand sellers.
+
+Your job is to inspect the product photo(s) and any barcode hint, then return the most useful pricing guidance possible.
+
+Return ONLY valid JSON with these exact keys:
+{
+  "barcode": "barcode string or null",
+  "product_name": "specific product name if identifiable, otherwise null",
+  "brand": "brand name or null",
+  "product_type": "specific type such as Wax Jacket, Running Trainers, Coffee Machine",
+  "category": "one of: Women, Men, Kids, Home, Electronics, Entertainment, Hobbies, Other",
+  "model_number": "model, SKU, style code, ISBN or similar if visible, else null",
+  "colour": "main colour or null",
+  "size": "size if visible, else null",
+  "condition_summary": "brief honest note on visible condition",
+  "pricing_basis": "one of: barcode_match, visual_match, brand_model_match, category_estimate",
+  "estimated_retail_price": number in GBP or null,
+  "estimated_resale_listing_low": number in GBP or null,
+  "estimated_resale_listing_high": number in GBP or null,
+  "estimated_sold_price_low": number in GBP or null,
+  "estimated_sold_price_high": number in GBP or null,
+  "recommended_max_buy_price": number in GBP or null,
+  "confidence": number from 0 to 1,
+  "summary": "2-4 short sentences explaining what it likely is and the pricing view",
+  "evidence": ["short bullet facts behind the estimate"],
+  "search_keywords": ["useful", "keywords", "for", "sold", "comps"],
+  "disclaimer": "brief warning when identification is uncertain"
+}
+
+Rules:
+- Prioritise exact visible evidence: barcode, brand label, model code, packaging text, recognizable design details.
+- If the exact product is unclear, say so and widen the range rather than pretending certainty.
+- Prices must be realistic for the UK market in 2024-2026.
+- Retail price means likely original or current new-shop price.
+- Resale listing range means what similar items may be listed for second-hand.
+- Sold price range means likely achieved second-hand sold prices, usually lower than listing price.
+- recommended_max_buy_price should leave room for fees, offers, and profit. If confidence is low, keep it conservative.
+- If barcode is provided but you cannot verify the exact product from the images, do not invent a precise match.
+- Use GBP only.
+${input.barcode ? `- Barcode hint: ${input.barcode}` : '- No barcode hint was provided.'}
+${input.purchasePrice != null ? `- The user may be considering or has paid £${input.purchasePrice}. Use this when judging whether the buy is sensible.` : ''}
+${input.userNotes ? `- User notes: ${input.userNotes}` : ''}`;
+}
+
 export function listingGenerationPrompt(item: {
   brand?: string;
   product_type?: string;

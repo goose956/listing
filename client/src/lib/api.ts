@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { PriceCheckResult } from '../types';
 
 // In dev, Vite proxies /api to the local Express server (see vite.config.ts).
 // In production set VITE_API_URL to the hosted API (or serve from the same origin).
@@ -122,6 +123,24 @@ export async function fetchSoldForwardingInfo(): Promise<SoldForwardingInfo> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Sold forwarding lookup failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function runPriceCheck(payload: {
+  imageUrls: string[];
+  barcode?: string;
+  purchasePrice?: number;
+  userNotes?: string;
+}): Promise<{ result: PriceCheckResult; model: string }> {
+  const res = await fetch(`${API_BASE}/api/ai/price-check`, {
+    method: 'POST',
+    headers: await authedHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Price check failed (${res.status})`);
   }
   return res.json();
 }
