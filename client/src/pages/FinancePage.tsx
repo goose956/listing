@@ -112,6 +112,14 @@ export function FinancePage() {
         </div>
       ) : null}
 
+      {summary.missingPurchasePriceCount > 0 ? (
+        <div className="mb-4">
+          <Alert tone="warning">
+            {summary.missingPurchasePriceCount} sold item{summary.missingPurchasePriceCount === 1 ? '' : 's'} in this report have no purchase cost recorded. Their profit is currently treated as 100% of the sale price before fees and shipping costs.
+          </Alert>
+        </div>
+      ) : null}
+
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Revenue" value={formatMoney(summary.revenue)} icon={<Wallet size={18} />} />
         <StatCard label="Gross profit" value={formatMoney(summary.grossProfit)} hint={`${summary.soldCount} sold items`} icon={<Landmark size={18} />} />
@@ -158,6 +166,7 @@ export function FinancePage() {
                   <th className="px-4 py-3 font-medium">Item</th>
                   <th className="px-4 py-3 font-medium">Sold</th>
                   <th className="px-4 py-3 font-medium">Revenue</th>
+                  <th className="px-4 py-3 font-medium">Cost basis</th>
                   <th className="px-4 py-3 font-medium">Gross</th>
                   <th className="px-4 py-3 font-medium">Costs</th>
                   <th className="px-4 py-3 font-medium">Net</th>
@@ -175,6 +184,13 @@ export function FinancePage() {
                       </td>
                       <td className="px-4 py-3 text-slate-600">{formatDate(item.sold_date)}</td>
                       <td className="px-4 py-3 font-medium text-slate-900">{formatMoney(item.sale_price)}</td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {finance.purchasePriceRecorded ? (
+                          formatMoney(item.purchase_price)
+                        ) : (
+                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">No cost recorded</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-slate-700">{formatMoney(finance.grossProfit)}</td>
                       <td className="px-4 py-3 text-slate-700">{formatMoney(finance.extraCosts)}</td>
                       <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(finance.netProfit)}</td>
@@ -223,6 +239,7 @@ function buildFinanceCsv(items: Item[]): string {
     'sold_date',
     'payout_received_at',
     'purchase_price',
+    'purchase_price_recorded',
     'sale_price',
     'platform_fee',
     'shipping_cost',
@@ -244,6 +261,7 @@ function buildFinanceCsv(items: Item[]): string {
       item.sold_date ?? '',
       item.payout_received_at ?? '',
       item.purchase_price ?? '',
+      finance.purchasePriceRecorded ? 'yes' : 'no',
       item.sale_price ?? '',
       item.platform_fee ?? '',
       item.shipping_cost ?? '',

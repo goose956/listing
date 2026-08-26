@@ -875,6 +875,11 @@ export function ItemDetailPage() {
               <p className="font-medium text-emerald-700">Net profit: {formatMoney(financePreview.netProfit)}</p>
             </div>
           )}
+          {!financePreview.purchasePriceRecorded && salePrice ? (
+            <p className="mt-2 text-xs text-amber-700">
+              No purchase cost recorded. Profit is being treated as 100% of the sale price before fees and shipping costs.
+            </p>
+          ) : null}
           {item.sold_date && (
             <p className="mt-1 text-xs text-slate-400">
               Sold {formatDateTime(item.sold_date)} · {formatMoney(item.sale_price)}
@@ -930,6 +935,11 @@ export function ItemDetailPage() {
               <p className="mt-1 text-base font-semibold text-emerald-800">{formatMoney(finance.netProfit)}</p>
             </div>
           </div>
+          {!finance.purchasePriceRecorded ? (
+            <p className="mt-3 text-xs text-amber-700">
+              This item has no purchase cost recorded, so profit is treated as full sale proceeds before extra costs.
+            </p>
+          ) : null}
           {item.payout_received_at ? (
             <p className="mt-3 text-xs text-slate-400">Payout received {formatDate(item.payout_received_at)}</p>
           ) : null}

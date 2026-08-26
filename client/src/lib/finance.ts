@@ -2,6 +2,7 @@ import type { Item } from '../types';
 
 export interface ItemFinanceSummary {
   purchasePrice: number;
+  purchasePriceRecorded: boolean;
   salePrice: number | null;
   extraCosts: number;
   grossProfit: number | null;
@@ -11,6 +12,7 @@ export interface ItemFinanceSummary {
 
 export interface FinanceSummary {
   soldCount: number;
+  missingPurchasePriceCount: number;
   revenue: number;
   grossProfit: number;
   netProfit: number;
@@ -32,6 +34,7 @@ export function sumItemExtraCosts(item: Pick<Item, 'platform_fee' | 'shipping_co
 }
 
 export function getItemFinanceSummary(item: Pick<Item, 'purchase_price' | 'sale_price' | 'platform_fee' | 'shipping_cost' | 'packaging_cost' | 'other_costs'>): ItemFinanceSummary {
+  const purchasePriceRecorded = item.purchase_price != null && Number.isFinite(Number(item.purchase_price));
   const purchasePrice = toAmount(item.purchase_price);
   const salePrice = item.sale_price == null ? null : toAmount(item.sale_price);
   const extraCosts = sumItemExtraCosts(item);
@@ -43,6 +46,7 @@ export function getItemFinanceSummary(item: Pick<Item, 'purchase_price' | 'sale_
 
   return {
     purchasePrice,
+    purchasePriceRecorded,
     salePrice,
     extraCosts,
     grossProfit,
@@ -53,8 +57,9 @@ export function getItemFinanceSummary(item: Pick<Item, 'purchase_price' | 'sale_
 
 export function buildFinanceSummary(items: Item[]): FinanceSummary {
   const soldItems = items.filter((item) => item.status === 'sold' && item.sale_price != null);
-  const netProfits = soldItems.map((item) => getItemFinanceSummary(item).netProfit ?? 0);
-  const grossProfits = soldItems.map((item) => getItemFinanceSummary(item).grossProfit ?? 0);
+  const soldFinance = soldItems.map((item) => getItemFinanceSummary(item));
+  const netProfits = soldFinance.map((item) => item.netProfit ?? 0);
+  const grossProfits = soldFinance.map((item) => item.grossProfit ?? 0);
   const revenues = soldItems.map((item) => Number(item.sale_price ?? 0));
   const totalExtraCosts = soldItems.reduce((sum, item) => sum + sumItemExtraCosts(item), 0);
   const inventorySpend = items.reduce((sum, item) => sum + toAmount(item.purchase_price), 0);
@@ -64,6 +69,7 @@ export function buildFinanceSummary(items: Item[]): FinanceSummary {
 
   return {
     soldCount: soldItems.length,
+    missingPurchasePriceCount: soldFinance.filter((item) => !item.purchasePriceRecorded).length,
     revenue: revenues.reduce((sum, value) => sum + value, 0),
     grossProfit: grossProfits.reduce((sum, value) => sum + value, 0),
     netProfit: netProfits.reduce((sum, value) => sum + value, 0),
