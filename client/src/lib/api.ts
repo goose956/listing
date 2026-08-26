@@ -94,6 +94,8 @@ export interface SoldForwardingInfo {
   token: string;
 }
 
+export type SoldInboxReviewAction = 'ignore' | 'reopen' | 'match_item' | 'match_and_mark_sold';
+
 /** Email one or more listings to the user's saved address. */
 export async function sendListingsEmail(items: EmailItemPayload[]): Promise<{
   ok: boolean;
@@ -120,6 +122,22 @@ export async function fetchSoldForwardingInfo(): Promise<SoldForwardingInfo> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Sold forwarding lookup failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function reviewSaleInboxEvent(
+  eventId: string,
+  payload: { action: SoldInboxReviewAction; matchedItemId?: string }
+): Promise<{ ok: boolean; processingStatus?: string; matchedItemId?: string }> {
+  const res = await fetch(`${API_BASE}/api/email/sold-events/${eventId}/review`, {
+    method: 'POST',
+    headers: await authedHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Sale inbox review failed (${res.status})`);
   }
   return res.json();
 }

@@ -112,9 +112,13 @@ export interface SaleInboxEvent {
   detected_listing_title: string | null;
   detected_sale_price: number | null;
   detected_currency: string | null;
+  buyer_name: string | null;
+  buyer_address_lines: string[] | null;
+  buyer_postcode: string | null;
+  buyer_country: string | null;
   matched_item_id: string | null;
   auto_marked_sold: boolean;
-  processing_status: 'received' | 'matched' | 'auto_marked_sold' | 'needs_review' | 'ignored' | 'error';
+  processing_status: 'received' | 'matched' | 'auto_marked_sold' | 'manually_marked_sold' | 'needs_review' | 'ignored' | 'error';
   received_at: string;
   processed_at: string | null;
   created_at: string;

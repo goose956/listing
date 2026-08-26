@@ -56,6 +56,15 @@ interface SoldForwardingAddressResponse {
   token: string;
 }
 
+interface ParsedBuyerAddress {
+  buyerName: string | null;
+  addressLines: string[];
+  postcode: string | null;
+  country: string | null;
+}
+
+type ReviewProcessingStatus = 'received' | 'matched' | 'auto_marked_sold' | 'manually_marked_sold' | 'needs_review' | 'ignored' | 'error';
+
 function getSoldInboxDomain(): string | null {
   const domain = process.env.SOLD_INBOX_DOMAIN?.trim().toLowerCase();
   return domain || null;
@@ -157,6 +166,98 @@ function detectSalePrice(subject: string, body: string): { amount: number | null
   return { amount: null, currency: null };
 }
 
+function normalizeMultilineText(value: string): string {
+  return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+function cleanAddressLine(value: string): string {
+  return value
+    .replace(/^[\s>*\-:|]+/, '')
+    .replace(/^(name|buyer|recipient|address|delivery address|shipping address)\s*:\s*/i, '')
+    .trim();
+}
+
+function looksLikeCountry(value: string): boolean {
+  return /^(united kingdom|great britain|england|scotland|wales|northern ireland|uk|usa|united states|france|germany|italy|spain|ireland|netherlands|belgium|australia|canada)$/i.test(value.trim());
+}
+
+function detectPostcode(lines: string[]): string | null {
+  const text = lines.join(' ');
+  const uk = text.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i);
+  if (uk) return uk[0].toUpperCase();
+  const us = text.match(/\b\d{5}(?:-\d{4})?\b/);
+  if (us) return us[0];
+  return null;
+}
+
+function extractAddressBlock(body: string): string | null {
+  const normalized = normalizeMultilineText(body);
+  const explicitBlockPatterns = [
+    /(?:shipping|delivery|postal)\s+address\s*:?\s*\n([\s\S]{0,600})/i,
+    /(?:ship to|send to|deliver to|post to)\s*:?\s*\n([\s\S]{0,600})/i,
+    /buyer(?:'s)?\s+address\s*:?\s*\n([\s\S]{0,600})/i,
+  ];
+
+  for (const pattern of explicitBlockPatterns) {
+    const match = normalized.match(pattern);
+    if (match?.[1]?.trim()) return match[1];
+  }
+
+  const lines = normalized.split('\n');
+  const startIndex = lines.findIndex((line) => /(?:shipping|delivery|postal)\s+address|buyer(?:'s)?\s+address|ship to|send to|deliver to|post to/i.test(line));
+  if (startIndex >= 0) {
+    return lines.slice(startIndex + 1, startIndex + 9).join('\n');
+  }
+
+  return null;
+}
+
+function parseBuyerAddress(payload: Record<string, unknown>, body: string): ParsedBuyerAddress | null {
+  const directAddress = readString(payload, ['buyer_address', 'shipping_address', 'delivery_address', 'recipient_address']);
+  const rawBlock = directAddress || extractAddressBlock(body);
+  if (!rawBlock) return null;
+
+  const stopLinePattern = /^(order|order number|item|item number|tracking|dispatch|ship by|send by|post by|view|thanks|thank you|payment|price|sold|message|contact|support|download|qr code|reference)\b/i;
+  const rawLines = normalizeMultilineText(rawBlock)
+    .split('\n')
+    .map(cleanAddressLine)
+    .filter(Boolean);
+
+  const addressLines: string[] = [];
+  for (const line of rawLines) {
+    if (stopLinePattern.test(line) && addressLines.length > 0) break;
+    if (/@/.test(line) || /^https?:\/\//i.test(line)) continue;
+    if (line.length < 3) continue;
+    addressLines.push(line);
+    if (addressLines.length >= 6) break;
+  }
+
+  if (addressLines.length === 0) return null;
+
+  let buyerName = readString(payload, ['buyer_name', 'recipient_name', 'shipping_name', 'delivery_name']) || null;
+  let linesForLabel = [...addressLines];
+  if (!buyerName && addressLines.length > 1 && !/\d/.test(addressLines[0])) {
+    buyerName = addressLines[0];
+    linesForLabel = addressLines.slice(1);
+  }
+
+  if (linesForLabel.length === 0) {
+    linesForLabel = buyerName ? [buyerName] : [];
+    buyerName = null;
+  }
+
+  const lastLine = linesForLabel[linesForLabel.length - 1] ?? '';
+  const country = looksLikeCountry(lastLine) ? lastLine : null;
+  const postcode = detectPostcode(linesForLabel);
+
+  return {
+    buyerName,
+    addressLines: linesForLabel,
+    postcode,
+    country,
+  };
+}
+
 function buildBodyExcerpt(body: string): string {
   return body.replace(/\s+/g, ' ').trim().slice(0, 2000);
 }
@@ -174,6 +275,25 @@ function getReceivedAt(payload: Record<string, unknown>): string {
   if (!source) return new Date().toISOString();
   const parsed = new Date(source);
   return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+async function requireAuthedUserId(authHeader?: string): Promise<string> {
+  const userId = await resolveUserId(authHeader);
+  if (!userId) throw new Error('Unauthorized');
+  return userId;
+}
+
+async function resolveOwnedItem(userId: string, itemId: string) {
+  const { data: item, error } = await getSupabaseAdmin()
+    .from('items')
+    .select('id, user_id, status')
+    .eq('id', itemId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!item?.id) throw new Error('Item not found');
+  return item;
 }
 
 emailRouter.get('/sold-forwarding', async (req, res) => {
@@ -226,10 +346,11 @@ emailRouter.post('/inbound/sold', async (req, res) => {
     const { amount, currency } = detectSalePrice(subject, body);
     const receivedAt = getReceivedAt(payload);
     const bodyExcerpt = buildBodyExcerpt(body);
+    const buyerAddress = parseBuyerAddress(payload, body);
 
     let matchedItemId: string | null = null;
     let autoMarkedSold = false;
-    let processingStatus: 'received' | 'matched' | 'auto_marked_sold' | 'needs_review' = detectedItemNumber ? 'matched' : 'needs_review';
+    let processingStatus: ReviewProcessingStatus = detectedItemNumber ? 'matched' : 'needs_review';
 
     if (detectedItemNumber) {
       const { data: item } = await db
@@ -276,6 +397,10 @@ emailRouter.post('/inbound/sold', async (req, res) => {
         detected_listing_title: subject || null,
         detected_sale_price: amount,
         detected_currency: currency,
+        buyer_name: buyerAddress?.buyerName ?? null,
+        buyer_address_lines: buyerAddress?.addressLines?.length ? buyerAddress.addressLines : null,
+        buyer_postcode: buyerAddress?.postcode ?? null,
+        buyer_country: buyerAddress?.country ?? null,
         matched_item_id: matchedItemId,
         auto_marked_sold: autoMarkedSold,
         processing_status: processingStatus,
@@ -297,6 +422,106 @@ emailRouter.post('/inbound/sold', async (req, res) => {
   } catch (err) {
     await logError({ type: 'sold_inbound_failed', message: err instanceof Error ? err.message : 'Inbound sold email processing failed', detail: req.body });
     res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to process inbound sold email' });
+  }
+});
+
+emailRouter.post('/sold-events/:eventId/review', async (req, res) => {
+  try {
+    const userId = await requireAuthedUserId(req.headers.authorization);
+    const eventId = String(req.params.eventId || '').trim();
+    const action = String((req.body as Record<string, unknown>)?.action || '').trim();
+    const providedItemId = typeof (req.body as Record<string, unknown>)?.matchedItemId === 'string'
+      ? String((req.body as Record<string, unknown>).matchedItemId).trim()
+      : '';
+
+    if (!eventId) return res.status(400).json({ error: 'Event id is required' });
+
+    const db = getSupabaseAdmin();
+    const { data: event, error: eventError } = await db
+      .from('sale_inbox_events')
+      .select('id, user_id, received_at, detected_sale_price, matched_item_id')
+      .eq('id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (eventError) throw eventError;
+    if (!event?.id) return res.status(404).json({ error: 'Sale inbox event not found' });
+
+    const resolvedItemId = providedItemId || (typeof event.matched_item_id === 'string' ? event.matched_item_id : '');
+    const processedAt = new Date().toISOString();
+
+    if (action === 'ignore') {
+      const { error } = await db
+        .from('sale_inbox_events')
+        .update({ processing_status: 'ignored', processed_at: processedAt, auto_marked_sold: false })
+        .eq('id', eventId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return res.json({ ok: true, processingStatus: 'ignored' });
+    }
+
+    if (action === 'reopen') {
+      const { error } = await db
+        .from('sale_inbox_events')
+        .update({ processing_status: 'needs_review', processed_at: null, matched_item_id: null, auto_marked_sold: false })
+        .eq('id', eventId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return res.json({ ok: true, processingStatus: 'needs_review' });
+    }
+
+    if (!resolvedItemId) {
+      return res.status(400).json({ error: 'Select a matching item first' });
+    }
+
+    const item = await resolveOwnedItem(userId, resolvedItemId);
+
+    if (action === 'match_item') {
+      const { error } = await db
+        .from('sale_inbox_events')
+        .update({ matched_item_id: item.id, processing_status: 'matched', processed_at: processedAt, auto_marked_sold: false })
+        .eq('id', eventId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return res.json({ ok: true, processingStatus: 'matched', matchedItemId: item.id });
+    }
+
+    if (action === 'match_and_mark_sold') {
+      const detectedSalePrice = event.detected_sale_price == null ? null : Number(event.detected_sale_price);
+      const itemUpdate: Record<string, unknown> = {
+        status: 'sold',
+        sold_date: event.received_at || processedAt,
+      };
+      if (detectedSalePrice != null && Number.isFinite(detectedSalePrice)) {
+        itemUpdate.sale_price = detectedSalePrice;
+      }
+
+      if (item.status !== 'sold') {
+        const { error: itemError } = await db
+          .from('items')
+          .update(itemUpdate)
+          .eq('id', item.id)
+          .eq('user_id', userId);
+        if (itemError) throw itemError;
+      }
+
+      const { error } = await db
+        .from('sale_inbox_events')
+        .update({ matched_item_id: item.id, processing_status: 'manually_marked_sold', processed_at: processedAt, auto_marked_sold: false })
+        .eq('id', eventId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return res.json({ ok: true, processingStatus: 'manually_marked_sold', matchedItemId: item.id });
+    }
+
+    return res.status(400).json({ error: 'Unsupported review action' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to review sale inbox event';
+    if (message === 'Unauthorized') {
+      return res.status(401).json({ error: message });
+    }
+    await logError({ type: 'sold_review_failed', message, detail: { params: req.params, body: req.body } });
+    return res.status(500).json({ error: message });
   }
 });
 
