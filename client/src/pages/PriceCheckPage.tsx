@@ -180,7 +180,7 @@ export function PriceCheckPage() {
     <div>
       <PageHeader
         title="Price check"
-        subtitle="Scan a barcode or photograph an item to estimate retail and resale value before you buy"
+        subtitle="Scan a barcode or photograph an item to get a rough estimate of retail and resale value before you buy"
         actions={<Link to="/add"><Button type="button" variant="ghost">Open add item</Button></Link>}
       />
 
@@ -202,9 +202,9 @@ export function PriceCheckPage() {
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-teal-700 ring-1 ring-teal-100">
               <ScanSearch size={14} /> Field sourcing tool
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">Dedicated retail and resale price check</h2>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">Retail and resale estimate</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Use barcode cues, visible branding, and item photos together. This first version gives a structured estimate for retail price, likely sold range, and a sensible max buy price.
+              Use barcode cues, visible branding, and item photos together. This first version gives a structured estimate for likely retail price, rough sold range, and a sensible max buy price.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
@@ -213,6 +213,7 @@ export function PriceCheckPage() {
               <li>Photograph the front of the item.</li>
               <li>Add the brand or size label if possible.</li>
               <li>Include the barcode or box when it exists.</li>
+              <li>Treat the result as a guide, not an exact valuation.</li>
             </ul>
           </div>
         </div>
@@ -347,10 +348,10 @@ export function PriceCheckPage() {
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Stat label="Retail price" value={formatMoney(result.estimated_retail_price ?? null)} />
-                <Stat label="Listing range" value={formatPriceBand(result.estimated_resale_listing_low, result.estimated_resale_listing_high)} />
-                <Stat label="Sold range" value={formatPriceBand(result.estimated_sold_price_low, result.estimated_sold_price_high)} />
-                <Stat label="Max buy price" value={formatMoney(result.recommended_max_buy_price ?? null)} />
+                <Stat label="Retail estimate" value={formatMoney(result.estimated_retail_price ?? null)} />
+                <Stat label="Listing estimate" value={formatPriceBand(result.estimated_resale_listing_low, result.estimated_resale_listing_high)} />
+                <Stat label="Sold estimate" value={formatPriceBand(result.estimated_sold_price_low, result.estimated_sold_price_high)} />
+                <Stat label="Max buy guide" value={formatMoney(result.recommended_max_buy_price ?? null)} />
               </div>
             </Card>
 
@@ -405,7 +406,11 @@ export function PriceCheckPage() {
             <Card>
               <Alert tone="warning">{result.disclaimer}</Alert>
             </Card>
-          ) : null}
+          ) : (
+            <Card>
+              <Alert tone="warning">This is an estimate only. Use it as a quick sourcing guide, then verify with live comps before committing to a price-sensitive buy.</Alert>
+            </Card>
+          )}
         </div>
       ) : null}
     </div>
