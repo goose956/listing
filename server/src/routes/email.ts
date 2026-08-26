@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Resend } from 'resend';
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin.js';
+import { logError } from '../lib/errorLog.js';
 
 export const emailRouter = Router();
 
@@ -47,6 +48,257 @@ function getResend() {
 }
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Listings Assistant <onboarding@resend.dev>';
+const SOLD_FORWARDING_LOCAL_PART = 'sold';
+
+interface SoldForwardingAddressResponse {
+  configured: boolean;
+  address: string | null;
+  token: string;
+}
+
+function getSoldInboxDomain(): string | null {
+  const domain = process.env.SOLD_INBOX_DOMAIN?.trim().toLowerCase();
+  return domain || null;
+}
+
+async function ensureSoldForwardingToken(userId: string): Promise<string> {
+  const db = getSupabaseAdmin();
+  const { data: existing } = await db
+    .from('user_settings')
+    .select('sold_forwarding_token')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const currentToken = typeof existing?.sold_forwarding_token === 'string'
+    ? existing.sold_forwarding_token.trim()
+    : '';
+  if (currentToken) return currentToken;
+
+  const { data: inserted, error } = await db
+    .from('user_settings')
+    .upsert({ user_id: userId }, { onConflict: 'user_id' })
+    .select('sold_forwarding_token')
+    .single();
+
+  if (error || !inserted?.sold_forwarding_token) {
+    throw new Error(error?.message || 'Failed to create sold forwarding token');
+  }
+
+  return String(inserted.sold_forwarding_token);
+}
+
+function buildSoldForwardingAddress(token: string): SoldForwardingAddressResponse {
+  const domain = getSoldInboxDomain();
+  return {
+    configured: Boolean(domain),
+    address: domain ? `${SOLD_FORWARDING_LOCAL_PART}+${token}@${domain}` : null,
+    token,
+  };
+}
+
+function readString(payload: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function extractEmailAddresses(value: string): string[] {
+  return Array.from(value.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)).map((match) => match[0].toLowerCase());
+}
+
+function extractForwardingToken(addresses: string[]): string | null {
+  for (const address of addresses) {
+    const localPart = address.split('@')[0] || '';
+    if (localPart.startsWith(`${SOLD_FORWARDING_LOCAL_PART}+`)) {
+      const token = localPart.slice(SOLD_FORWARDING_LOCAL_PART.length + 1).trim();
+      if (token) return token;
+    }
+  }
+  return null;
+}
+
+function detectPlatform(fromAddress: string, subject: string, body: string): string | null {
+  const haystack = `${fromAddress}\n${subject}\n${body}`.toLowerCase();
+  if (haystack.includes('vinted')) return 'vinted';
+  if (haystack.includes('ebay')) return 'ebay';
+  if (haystack.includes('depop')) return 'depop';
+  if (haystack.includes('etsy')) return 'etsy';
+  return null;
+}
+
+function detectItemNumber(subject: string, body: string): string | null {
+  const match = `${subject}\n${body}`.match(/\b[A-Z]{1,3}-\d{4,}\b/);
+  return match ? match[0].toUpperCase() : null;
+}
+
+function detectSalePrice(subject: string, body: string): { amount: number | null; currency: string | null } {
+  const haystack = `${subject}\n${body}`;
+  const patterns: Array<{ regex: RegExp; currency: string }> = [
+    { regex: /£\s?(\d+(?:[.,]\d{1,2})?)/, currency: 'GBP' },
+    { regex: /GBP\s?(\d+(?:[.,]\d{1,2})?)/i, currency: 'GBP' },
+    { regex: /\$\s?(\d+(?:[.,]\d{1,2})?)/, currency: 'USD' },
+    { regex: /USD\s?(\d+(?:[.,]\d{1,2})?)/i, currency: 'USD' },
+    { regex: /EUR\s?(\d+(?:[.,]\d{1,2})?)/i, currency: 'EUR' },
+    { regex: /€\s?(\d+(?:[.,]\d{1,2})?)/, currency: 'EUR' },
+  ];
+
+  for (const pattern of patterns) {
+    const match = haystack.match(pattern.regex);
+    if (match) {
+      const amount = Number(match[1].replace(',', '.'));
+      if (Number.isFinite(amount)) {
+        return { amount, currency: pattern.currency };
+      }
+    }
+  }
+
+  return { amount: null, currency: null };
+}
+
+function buildBodyExcerpt(body: string): string {
+  return body.replace(/\s+/g, ' ').trim().slice(0, 2000);
+}
+
+function getInboundSecret(req: { headers: Record<string, unknown>; query: Record<string, unknown> }) {
+  const headerSecret = typeof req.headers['x-starsella-inbound-secret'] === 'string'
+    ? req.headers['x-starsella-inbound-secret']
+    : '';
+  const querySecret = typeof req.query.secret === 'string' ? req.query.secret : '';
+  return headerSecret || querySecret;
+}
+
+function getReceivedAt(payload: Record<string, unknown>): string {
+  const source = readString(payload, ['date', 'Date', 'received_at', 'timestamp']);
+  if (!source) return new Date().toISOString();
+  const parsed = new Date(source);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+emailRouter.get('/sold-forwarding', async (req, res) => {
+  try {
+    const userId = await resolveUserId(req.headers.authorization);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const token = await ensureSoldForwardingToken(userId);
+    res.json(buildSoldForwardingAddress(token));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to load sold forwarding address' });
+  }
+});
+
+emailRouter.post('/inbound/sold', async (req, res) => {
+  const expectedSecret = process.env.INBOUND_EMAIL_SECRET?.trim();
+  if (expectedSecret && getInboundSecret(req) !== expectedSecret) {
+    return res.status(401).json({ error: 'Unauthorized inbound request' });
+  }
+
+  try {
+    const payload = (req.body ?? {}) as Record<string, unknown>;
+    const toValue = readString(payload, ['to', 'recipient', 'To', 'Delivered-To', 'X-Original-To']);
+    const fromAddress = readString(payload, ['from', 'sender', 'From']);
+    const subject = readString(payload, ['subject', 'Subject']);
+    const body = readString(payload, ['text', 'stripped-text', 'body-plain', 'TextBody', 'body']);
+    const messageId = readString(payload, ['message_id', 'MessageID', 'Message-Id']);
+    const toAddresses = extractEmailAddresses(toValue);
+    const token = extractForwardingToken(toAddresses);
+
+    if (!token) {
+      await logError({ type: 'sold_inbound_missing_token', message: 'Inbound sold email missing forwarding token', detail: { toValue, subject } });
+      return res.status(400).json({ error: 'Sold forwarding token not found in recipient address' });
+    }
+
+    const db = getSupabaseAdmin();
+    const { data: settings } = await db
+      .from('user_settings')
+      .select('user_id')
+      .eq('sold_forwarding_token', token)
+      .maybeSingle();
+
+    if (!settings?.user_id) {
+      await logError({ type: 'sold_inbound_unknown_token', message: 'Inbound sold email token did not match a user', detail: { token, subject } });
+      return res.status(404).json({ error: 'Unknown sold forwarding token' });
+    }
+
+    const platform = detectPlatform(fromAddress, subject, body);
+    const detectedItemNumber = detectItemNumber(subject, body);
+    const { amount, currency } = detectSalePrice(subject, body);
+    const receivedAt = getReceivedAt(payload);
+    const bodyExcerpt = buildBodyExcerpt(body);
+
+    let matchedItemId: string | null = null;
+    let autoMarkedSold = false;
+    let processingStatus: 'received' | 'matched' | 'auto_marked_sold' | 'needs_review' = detectedItemNumber ? 'matched' : 'needs_review';
+
+    if (detectedItemNumber) {
+      const { data: item } = await db
+        .from('items')
+        .select('id, status')
+        .eq('user_id', settings.user_id)
+        .eq('item_number', detectedItemNumber)
+        .maybeSingle();
+
+      if (item?.id) {
+        matchedItemId = item.id as string;
+        if (item.status !== 'sold') {
+          const updatePayload: Record<string, unknown> = {
+            status: 'sold',
+            sold_date: receivedAt,
+          };
+          if (amount != null) updatePayload.sale_price = amount;
+
+          await db
+            .from('items')
+            .update(updatePayload)
+            .eq('id', item.id)
+            .eq('user_id', settings.user_id);
+
+          autoMarkedSold = true;
+          processingStatus = 'auto_marked_sold';
+        }
+      } else {
+        processingStatus = 'needs_review';
+      }
+    }
+
+    const { data: inserted, error } = await db
+      .from('sale_inbox_events')
+      .insert({
+        user_id: settings.user_id,
+        message_id: messageId || null,
+        source_platform: platform,
+        from_address: fromAddress || null,
+        to_address: toAddresses[0] || toValue || `${SOLD_FORWARDING_LOCAL_PART}+${token}`,
+        subject: subject || null,
+        body_excerpt: bodyExcerpt || null,
+        detected_item_number: detectedItemNumber,
+        detected_listing_title: subject || null,
+        detected_sale_price: amount,
+        detected_currency: currency,
+        matched_item_id: matchedItemId,
+        auto_marked_sold: autoMarkedSold,
+        processing_status: processingStatus,
+        received_at: receivedAt,
+        processed_at: autoMarkedSold || matchedItemId ? new Date().toISOString() : null,
+      })
+      .select('id, processing_status, matched_item_id, auto_marked_sold')
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      ok: true,
+      eventId: inserted?.id,
+      processingStatus: inserted?.processing_status,
+      matchedItemId: inserted?.matched_item_id,
+      autoMarkedSold: inserted?.auto_marked_sold,
+    });
+  } catch (err) {
+    await logError({ type: 'sold_inbound_failed', message: err instanceof Error ? err.message : 'Inbound sold email processing failed', detail: req.body });
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to process inbound sold email' });
+  }
+});
 
 /**
  * Email one or more listings to the user's saved email address.

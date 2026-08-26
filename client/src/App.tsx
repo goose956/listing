@@ -9,6 +9,7 @@ import { AddItemPage } from './pages/AddItemPage';
 import { ItemDetailPage } from './pages/ItemDetailPage';
 import { QueuePage } from './pages/QueuePage';
 import { StoragePage } from './pages/StoragePage';
+import { SoldInboxPage } from './pages/SoldInboxPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminPage } from './pages/AdminPage';
 import { BillingPage } from './pages/BillingPage';
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="add" element={<AddItemPage />} />
         <Route path="items/:id" element={<ItemDetailPage />} />
         <Route path="queue" element={<QueuePage />} />
+        <Route path="sold-inbox" element={<SoldInboxPage />} />
         <Route path="storage" element={<StoragePage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />

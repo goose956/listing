@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { KeyRound, Link, Link2Off, Mail, RefreshCw, Save, ShoppingBag, Trash2 } from 'lucide-react';
+import { KeyRound, Link as LinkIcon, Link2Off, Mail, RefreshCw, Save, ShoppingBag, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { checkApiHealth } from '../lib/api';
+import { checkApiHealth, fetchSoldForwardingInfo, type SoldForwardingInfo } from '../lib/api';
+import { copyToClipboard } from '../lib/format';
 import { clearOpenAIKey, fetchSettings, saveSettings, type UserSettingsSafe } from '../lib/settings';
 import {
   Alert,
@@ -36,6 +38,7 @@ export function SettingsPage() {
   const [vintedUsername, setVintedUsername] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
   const [apiHealth, setApiHealth] = useState<{ status: string; aiConfigured: boolean } | null>(null);
+  const [soldForwarding, setSoldForwarding] = useState<SoldForwardingInfo | null>(null);
 
   // eBay state
   const [ebayStatus, setEbayStatus] = useState<EbayStatus | null>(null);
@@ -54,9 +57,10 @@ export function SettingsPage() {
       setLoading(true);
       setError(null);
       try {
-        const [s, health, ebay] = await Promise.all([
+        const [s, health, soldForwardingInfo, ebay] = await Promise.all([
           fetchSettings().catch(() => null),
           checkApiHealth().catch(() => null),
+          fetchSoldForwardingInfo().catch(() => null),
           getEbayStatus().catch(() => null),
         ]);
         if (cancelled) return;
@@ -65,6 +69,7 @@ export function SettingsPage() {
         setVintedUsername(s?.vinted_username || '');
         setEmailAddress(s?.email_address || '');
         setApiHealth(health);
+        setSoldForwarding(soldForwardingInfo);
 
         if (ebay) {
           setEbayStatus(ebay);
@@ -227,6 +232,12 @@ export function SettingsPage() {
     }
   }
 
+  async function handleCopySoldForwarding() {
+    if (!soldForwarding?.address) return;
+    const copied = await copyToClipboard(soldForwarding.address);
+    flash(copied ? 'Sold forwarding address copied' : 'Copy failed');
+  }
+
   if (loading) return <LoadingScreen label="Loading settings…" />;
 
   return (
@@ -343,6 +354,42 @@ export function SettingsPage() {
         </div>
       </Card>
 
+      <Card className="mb-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Mail size={16} className="text-teal-600" />
+            Sold email forwarding
+          </h2>
+          {soldForwarding?.address && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+              Ready ✓
+            </span>
+          )}
+        </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Forward sold messages from Vinted, eBay, and other marketplaces to this address. Starsella will log them and auto-mark sold when it finds an exact item number.
+        </p>
+        <Input
+          label="Forwarding address"
+          value={soldForwarding?.address || 'Inbound email domain not configured yet'}
+          readOnly
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" disabled={!soldForwarding?.address} onClick={handleCopySoldForwarding}>
+            <Mail size={16} />
+            Copy address
+          </Button>
+          <Link to="/sold-inbox" className="inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:underline">
+            Open sold inbox
+          </Link>
+        </div>
+        {!soldForwarding?.configured && (
+          <p className="mt-2 text-xs text-amber-700">
+            This address will go live once inbound mail is configured on the server.
+          </p>
+        )}
+      </Card>
+
       {/* Vinted preferences */}
       <Card className="mb-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-800">Vinted preferences</h2>
@@ -393,7 +440,7 @@ export function SettingsPage() {
               </select>
             </div>
             <Button type="button" variant="secondary" disabled={ebayLoading} onClick={handleEbayConnect}>
-              {ebayLoading ? <Spinner className="border-t-teal-600" /> : <Link size={16} />}
+              {ebayLoading ? <Spinner className="border-t-teal-600" /> : <LinkIcon size={16} />}
               Connect eBay
             </Button>
           </div>

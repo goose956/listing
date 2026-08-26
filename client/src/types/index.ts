@@ -99,6 +99,28 @@ export interface DashboardStats {
   queue_pending: number;
 }
 
+export interface SaleInboxEvent {
+  id: string;
+  user_id: string;
+  message_id: string | null;
+  source_platform: string | null;
+  from_address: string | null;
+  to_address: string;
+  subject: string | null;
+  body_excerpt: string | null;
+  detected_item_number: string | null;
+  detected_listing_title: string | null;
+  detected_sale_price: number | null;
+  detected_currency: string | null;
+  matched_item_id: string | null;
+  auto_marked_sold: boolean;
+  processing_status: 'received' | 'matched' | 'auto_marked_sold' | 'needs_review' | 'ignored' | 'error';
+  received_at: string;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AiAnalysis {
   brand?: string | null;
   product_type?: string | null;

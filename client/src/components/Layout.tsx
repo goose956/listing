@@ -24,6 +24,7 @@ const nav = [
   { to: '/inventory', label: 'Inventory', icon: Package },
   { to: '/add', label: 'Add Item', icon: PlusCircle },
   { to: '/queue', label: 'List Queue', icon: ListOrdered },
+  { to: '/sold-inbox', label: 'Sold Inbox', icon: Bell },
   { to: '/storage', label: 'Storage', icon: Warehouse },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -216,7 +217,10 @@ export function Layout() {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 backdrop-blur lg:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-6 gap-1 px-1 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+        <div
+          className="mx-auto grid max-w-lg gap-1 px-1 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]"
+          style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}
+        >
           {nav.map((item) => (
             <NavLink
               key={item.to}

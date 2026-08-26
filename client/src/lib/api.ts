@@ -88,6 +88,12 @@ export interface EmailItemPayload {
   image_urls?: string[];
 }
 
+export interface SoldForwardingInfo {
+  configured: boolean;
+  address: string | null;
+  token: string;
+}
+
 /** Email one or more listings to the user's saved address. */
 export async function sendListingsEmail(items: EmailItemPayload[]): Promise<{
   ok: boolean;
@@ -103,6 +109,17 @@ export async function sendListingsEmail(items: EmailItemPayload[]): Promise<{
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Email send failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function fetchSoldForwardingInfo(): Promise<SoldForwardingInfo> {
+  const res = await fetch(`${API_BASE}/api/email/sold-forwarding`, {
+    headers: await authedHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Sold forwarding lookup failed (${res.status})`);
   }
   return res.json();
 }
