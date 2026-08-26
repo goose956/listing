@@ -334,6 +334,11 @@ export function PriceCheckPage() {
                     {result.product_name || [result.brand, result.product_type].filter(Boolean).join(' ') || 'Price check result'}
                   </h2>
                   <p className="mt-2 text-sm text-slate-600">{result.summary || 'No summary returned for this price check.'}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">75%+ higher-confidence estimate</span>
+                    <span className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800">45-74% usable rough guide</span>
+                    <span className="rounded-full bg-rose-50 px-2.5 py-1 font-medium text-rose-700">Below 45% double-check before buying</span>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" variant="secondary" disabled={!result.search_keywords?.length} onClick={() => void handleCopyKeywords()}>
