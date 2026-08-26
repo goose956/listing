@@ -207,26 +207,6 @@ export function Layout() {
                 Admin
               </NavLink>
             )}
-            <NavLink
-              to="/billing"
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-                  isActive
-                    ? 'bg-teal-50 text-teal-800'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                )
-              }
-            >
-              <CreditCard size={18} />
-              <span className="flex-1">Billing</span>
-              {!isPro && (itemLimit != null && itemCount >= itemLimit) && (
-                <span className="text-xs font-semibold text-rose-500">Full</span>
-              )}
-              {!isPro && !(itemLimit != null && itemCount >= itemLimit) && creditsLimit != null && creditsUsed >= creditsLimit && (
-                <span className="text-xs font-semibold text-rose-500">No AI</span>
-              )}
-            </NavLink>
           </nav>
 
           <div className="mt-auto border-t border-slate-100 pt-3">
