@@ -3,6 +3,8 @@ import type { Item } from '../types';
 export interface ItemFinanceSummary {
   purchasePrice: number;
   purchasePriceRecorded: boolean;
+  costIsGifted: boolean;
+  usesAssumedZeroCost: boolean;
   salePrice: number | null;
   extraCosts: number;
   grossProfit: number | null;
@@ -13,6 +15,7 @@ export interface ItemFinanceSummary {
 export interface FinanceSummary {
   soldCount: number;
   missingPurchasePriceCount: number;
+  giftedCostItemCount: number;
   revenue: number;
   grossProfit: number;
   netProfit: number;
@@ -33,8 +36,10 @@ export function sumItemExtraCosts(item: Pick<Item, 'platform_fee' | 'shipping_co
   return costs.reduce<number>((sum, value) => sum + toAmount(value), 0);
 }
 
-export function getItemFinanceSummary(item: Pick<Item, 'purchase_price' | 'sale_price' | 'platform_fee' | 'shipping_cost' | 'packaging_cost' | 'other_costs'>): ItemFinanceSummary {
+export function getItemFinanceSummary(item: Pick<Item, 'purchase_price' | 'sale_price' | 'cost_is_gifted' | 'platform_fee' | 'shipping_cost' | 'packaging_cost' | 'other_costs'>): ItemFinanceSummary {
   const purchasePriceRecorded = item.purchase_price != null && Number.isFinite(Number(item.purchase_price));
+  const costIsGifted = Boolean(item.cost_is_gifted);
+  const usesAssumedZeroCost = !purchasePriceRecorded && !costIsGifted;
   const purchasePrice = toAmount(item.purchase_price);
   const salePrice = item.sale_price == null ? null : toAmount(item.sale_price);
   const extraCosts = sumItemExtraCosts(item);
@@ -47,6 +52,8 @@ export function getItemFinanceSummary(item: Pick<Item, 'purchase_price' | 'sale_
   return {
     purchasePrice,
     purchasePriceRecorded,
+    costIsGifted,
+    usesAssumedZeroCost,
     salePrice,
     extraCosts,
     grossProfit,
@@ -69,7 +76,8 @@ export function buildFinanceSummary(items: Item[]): FinanceSummary {
 
   return {
     soldCount: soldItems.length,
-    missingPurchasePriceCount: soldFinance.filter((item) => !item.purchasePriceRecorded).length,
+    missingPurchasePriceCount: soldFinance.filter((item) => item.usesAssumedZeroCost).length,
+    giftedCostItemCount: soldFinance.filter((item) => item.costIsGifted && !item.purchasePriceRecorded).length,
     revenue: revenues.reduce((sum, value) => sum + value, 0),
     grossProfit: grossProfits.reduce((sum, value) => sum + value, 0),
     netProfit: netProfits.reduce((sum, value) => sum + value, 0),

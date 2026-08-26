@@ -436,6 +436,18 @@ export function AddItemPage() {
               value={form.purchase_price}
               onChange={(e) => update('purchase_price', e.target.value)}
             />
+            <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                checked={form.cost_is_gifted}
+                onChange={(e) => update('cost_is_gifted', e.target.checked)}
+              />
+              <span>
+                Gifted or free stock
+                <span className="mt-0.5 block text-xs text-slate-500">Use this when there is intentionally no purchase cost.</span>
+              </span>
+            </label>
             <Input
               label="Brand"
               value={form.brand}

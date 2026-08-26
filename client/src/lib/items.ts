@@ -24,6 +24,7 @@ function formToDb(form: Partial<ItemFormData>, userId: string) {
     list_price: parseMoneyInput(form.list_price || ''),
     accept_offers_above: parseMoneyInput(form.accept_offers_above || ''),
     sale_price: parseMoneyInput(form.sale_price || ''),
+    cost_is_gifted: Boolean(form.cost_is_gifted),
     platform_fee: parseMoneyInput(form.platform_fee || ''),
     shipping_cost: parseMoneyInput(form.shipping_cost || ''),
     packaging_cost: parseMoneyInput(form.packaging_cost || ''),
@@ -60,6 +61,7 @@ export function itemToForm(item: Item): ItemFormData {
     list_price: item.list_price != null ? String(item.list_price) : '',
     accept_offers_above:
       item.accept_offers_above != null ? String(item.accept_offers_above) : '',
+    cost_is_gifted: Boolean(item.cost_is_gifted),
     platform_fee: item.platform_fee != null ? String(item.platform_fee) : '',
     shipping_cost: item.shipping_cost != null ? String(item.shipping_cost) : '',
     packaging_cost: item.packaging_cost != null ? String(item.packaging_cost) : '',
@@ -135,6 +137,7 @@ function normalizeItem(row: Record<string, unknown>): Item {
   const finance = getItemFinanceSummary({
     purchase_price: purchase,
     sale_price: sale,
+    cost_is_gifted: Boolean(row.cost_is_gifted),
     platform_fee: row.platform_fee != null ? Number(row.platform_fee) : null,
     shipping_cost: row.shipping_cost != null ? Number(row.shipping_cost) : null,
     packaging_cost: row.packaging_cost != null ? Number(row.packaging_cost) : null,

@@ -495,6 +495,7 @@ export function ItemDetailPage() {
   const financePreview = getItemFinanceSummary({
     purchase_price: form.purchase_price ? Number(form.purchase_price) : item.purchase_price,
     sale_price: salePrice ? Number(salePrice) : item.sale_price,
+    cost_is_gifted: form.cost_is_gifted,
     platform_fee: form.platform_fee ? Number(form.platform_fee) : item.platform_fee,
     shipping_cost: form.shipping_cost ? Number(form.shipping_cost) : item.shipping_cost,
     packaging_cost: form.packaging_cost ? Number(form.packaging_cost) : item.packaging_cost,
@@ -875,9 +876,14 @@ export function ItemDetailPage() {
               <p className="font-medium text-emerald-700">Net profit: {formatMoney(financePreview.netProfit)}</p>
             </div>
           )}
-          {!financePreview.purchasePriceRecorded && salePrice ? (
+          {financePreview.usesAssumedZeroCost && salePrice ? (
             <p className="mt-2 text-xs text-amber-700">
               No purchase cost recorded. Profit is being treated as 100% of the sale price before fees and shipping costs.
+            </p>
+          ) : null}
+          {financePreview.costIsGifted && !financePreview.purchasePriceRecorded && salePrice ? (
+            <p className="mt-2 text-xs text-teal-700">
+              This item is marked as gifted or free stock, so zero purchase cost is intentional.
             </p>
           ) : null}
           {item.sold_date && (
@@ -914,6 +920,18 @@ export function ItemDetailPage() {
               value={form.other_costs}
               onChange={(e) => update('other_costs', e.target.value)}
             />
+            <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                checked={form.cost_is_gifted}
+                onChange={(e) => update('cost_is_gifted', e.target.checked)}
+              />
+              <span>
+                Gifted or free stock
+                <span className="mt-0.5 block text-xs text-slate-500">Marks zero purchase cost as intentional instead of missing.</span>
+              </span>
+            </label>
             <Input
               label="Payout received"
               type="date"
@@ -935,9 +953,14 @@ export function ItemDetailPage() {
               <p className="mt-1 text-base font-semibold text-emerald-800">{formatMoney(finance.netProfit)}</p>
             </div>
           </div>
-          {!finance.purchasePriceRecorded ? (
+          {finance.usesAssumedZeroCost ? (
             <p className="mt-3 text-xs text-amber-700">
               This item has no purchase cost recorded, so profit is treated as full sale proceeds before extra costs.
+            </p>
+          ) : null}
+          {finance.costIsGifted && !finance.purchasePriceRecorded ? (
+            <p className="mt-3 text-xs text-teal-700">
+              This item is marked as gifted or free stock, so zero purchase cost is intentional.
             </p>
           ) : null}
           {item.payout_received_at ? (

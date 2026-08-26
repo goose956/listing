@@ -120,6 +120,14 @@ export function FinancePage() {
         </div>
       ) : null}
 
+      {summary.giftedCostItemCount > 0 ? (
+        <div className="mb-4">
+          <Alert tone="info">
+            {summary.giftedCostItemCount} sold item{summary.giftedCostItemCount === 1 ? '' : 's'} in this report are marked as gifted or free stock, so zero purchase cost is intentional for those items.
+          </Alert>
+        </div>
+      ) : null}
+
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Revenue" value={formatMoney(summary.revenue)} icon={<Wallet size={18} />} />
         <StatCard label="Gross profit" value={formatMoney(summary.grossProfit)} hint={`${summary.soldCount} sold items`} icon={<Landmark size={18} />} />
@@ -187,6 +195,8 @@ export function FinancePage() {
                       <td className="px-4 py-3 text-slate-700">
                         {finance.purchasePriceRecorded ? (
                           formatMoney(item.purchase_price)
+                        ) : finance.costIsGifted ? (
+                          <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700">Gifted / free stock</span>
                         ) : (
                           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">No cost recorded</span>
                         )}
@@ -240,6 +250,7 @@ function buildFinanceCsv(items: Item[]): string {
     'payout_received_at',
     'purchase_price',
     'purchase_price_recorded',
+    'cost_is_gifted',
     'sale_price',
     'platform_fee',
     'shipping_cost',
@@ -262,6 +273,7 @@ function buildFinanceCsv(items: Item[]): string {
       item.payout_received_at ?? '',
       item.purchase_price ?? '',
       finance.purchasePriceRecorded ? 'yes' : 'no',
+      finance.costIsGifted ? 'yes' : 'no',
       item.sale_price ?? '',
       item.platform_fee ?? '',
       item.shipping_cost ?? '',

@@ -39,6 +39,7 @@ export interface Item {
   list_price: number | null;
   sale_price: number | null;
   accept_offers_above: number | null;
+  cost_is_gifted: boolean;
   platform_fee: number | null;
   shipping_cost: number | null;
   packaging_cost: number | null;
@@ -197,6 +198,7 @@ export interface ItemFormData {
   suggested_price: string;
   list_price: string;
   accept_offers_above: string;
+  cost_is_gifted: boolean;
   platform_fee: string;
   shipping_cost: string;
   packaging_cost: string;
@@ -254,6 +256,7 @@ export const EMPTY_ITEM_FORM: ItemFormData = {
   suggested_price: '',
   list_price: '',
   accept_offers_above: '',
+  cost_is_gifted: false,
   platform_fee: '',
   shipping_cost: '',
   packaging_cost: '',
