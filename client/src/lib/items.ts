@@ -8,6 +8,7 @@ import type {
   ListingQueueEntry,
 } from '../types';
 import { parseMoneyInput } from './format';
+import { getItemFinanceSummary, sumItemExtraCosts } from './finance';
 
 function formToDb(form: Partial<ItemFormData>, userId: string) {
   return {
@@ -23,6 +24,10 @@ function formToDb(form: Partial<ItemFormData>, userId: string) {
     list_price: parseMoneyInput(form.list_price || ''),
     accept_offers_above: parseMoneyInput(form.accept_offers_above || ''),
     sale_price: parseMoneyInput(form.sale_price || ''),
+    platform_fee: parseMoneyInput(form.platform_fee || ''),
+    shipping_cost: parseMoneyInput(form.shipping_cost || ''),
+    packaging_cost: parseMoneyInput(form.packaging_cost || ''),
+    other_costs: parseMoneyInput(form.other_costs || ''),
     storage_container: form.storage_container || null,
     storage_shelf: form.storage_shelf || null,
     storage_box: form.storage_box || null,
@@ -38,6 +43,7 @@ function formToDb(form: Partial<ItemFormData>, userId: string) {
     notes: form.notes || null,
     measurements: form.measurements || null,
     status: (form.status as ItemStatus) || 'new',
+    payout_received_at: form.payout_received_at || null,
   };
 }
 
@@ -54,6 +60,10 @@ export function itemToForm(item: Item): ItemFormData {
     list_price: item.list_price != null ? String(item.list_price) : '',
     accept_offers_above:
       item.accept_offers_above != null ? String(item.accept_offers_above) : '',
+    platform_fee: item.platform_fee != null ? String(item.platform_fee) : '',
+    shipping_cost: item.shipping_cost != null ? String(item.shipping_cost) : '',
+    packaging_cost: item.packaging_cost != null ? String(item.packaging_cost) : '',
+    other_costs: item.other_costs != null ? String(item.other_costs) : '',
     storage_container: item.storage_container || '',
     storage_shelf: item.storage_shelf || '',
     storage_box: item.storage_box || '',
@@ -65,6 +75,7 @@ export function itemToForm(item: Item): ItemFormData {
     measurements: item.measurements || '',
     status: item.status,
     sale_price: item.sale_price != null ? String(item.sale_price) : '',
+    payout_received_at: item.payout_received_at ? String(item.payout_received_at).slice(0, 10) : '',
   };
 }
 
@@ -121,6 +132,14 @@ function normalizeItem(row: Record<string, unknown>): Item {
     sorted.find((i) => i.is_primary)?.public_url || sorted[0]?.public_url || null;
   const purchase = Number(row.purchase_price) || 0;
   const sale = row.sale_price != null ? Number(row.sale_price) : null;
+  const finance = getItemFinanceSummary({
+    purchase_price: purchase,
+    sale_price: sale,
+    platform_fee: row.platform_fee != null ? Number(row.platform_fee) : null,
+    shipping_cost: row.shipping_cost != null ? Number(row.shipping_cost) : null,
+    packaging_cost: row.packaging_cost != null ? Number(row.packaging_cost) : null,
+    other_costs: row.other_costs != null ? Number(row.other_costs) : null,
+  });
   const postedMarketplaces = Array.isArray(row.posted_marketplaces)
     ? row.posted_marketplaces.filter((value): value is string => typeof value === 'string')
     : [];
@@ -132,6 +151,9 @@ function normalizeItem(row: Record<string, unknown>): Item {
     primary_image_url: primary,
     image_count: sorted.length,
     profit: sale != null ? sale - purchase : null,
+    gross_profit: finance.grossProfit,
+    total_costs: finance.extraCosts,
+    net_profit: finance.netProfit,
   };
 }
 
@@ -300,6 +322,7 @@ function buildDashboardStatsFallback(items: Item[], queuePending: number): Dashb
   const soldItems = items.filter((item) => item.status === 'sold' && item.sale_price != null);
   const soldProfits = soldItems
     .map((item) => Number(item.sale_price) - Number(item.purchase_price ?? 0));
+  const soldNetProfits = soldItems.map((item) => (item.net_profit ?? (Number(item.sale_price ?? 0) - Number(item.purchase_price ?? 0) - sumItemExtraCosts(item))));
 
   return {
     total_items: activeItems.length,
@@ -309,6 +332,7 @@ function buildDashboardStatsFallback(items: Item[], queuePending: number): Dashb
     sold: items.filter((item) => item.status === 'sold').length,
     archived: items.filter((item) => item.status === 'archived').length,
     total_profit: soldProfits.reduce((sum, value) => sum + value, 0),
+    total_net_profit: soldNetProfits.reduce((sum, value) => sum + value, 0),
     total_purchase_cost: activeItems.reduce((sum, item) => sum + Number(item.purchase_price ?? 0), 0),
     total_inventory_value: items
       .filter((item) => item.status === 'new' || item.status === 'ready_for_listing' || item.status === 'listed')
@@ -318,6 +342,9 @@ function buildDashboardStatsFallback(items: Item[], queuePending: number): Dashb
       : 0,
     average_profit: soldProfits.length > 0
       ? soldProfits.reduce((sum, value) => sum + value, 0) / soldProfits.length
+      : 0,
+    average_net_profit: soldNetProfits.length > 0
+      ? soldNetProfits.reduce((sum, value) => sum + value, 0) / soldNetProfits.length
       : 0,
     queue_pending: queuePending,
   };

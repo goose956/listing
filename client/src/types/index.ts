@@ -39,6 +39,10 @@ export interface Item {
   list_price: number | null;
   sale_price: number | null;
   accept_offers_above: number | null;
+  platform_fee: number | null;
+  shipping_cost: number | null;
+  packaging_cost: number | null;
+  other_costs: number | null;
   storage_container: string | null;
   storage_shelf: string | null;
   storage_box: string | null;
@@ -53,6 +57,7 @@ export interface Item {
   notes: string | null;
   measurements: string | null;
   date_added: string;
+  payout_received_at: string | null;
   created_at: string;
   updated_at: string;
   platform_prices: Record<string, number>;
@@ -64,6 +69,9 @@ export interface Item {
   ebay_marketplace?: string | null;
   // from view / joins
   profit?: number | null;
+  gross_profit?: number | null;
+  total_costs?: number | null;
+  net_profit?: number | null;
   primary_image_url?: string | null;
   image_count?: number;
   item_images?: ItemImage[];
@@ -92,10 +100,12 @@ export interface DashboardStats {
   sold: number;
   archived: number;
   total_profit: number;
+  total_net_profit?: number;
   total_purchase_cost: number;
   total_inventory_value: number;
   average_sale_price: number;
   average_profit: number;
+  average_net_profit?: number;
   queue_pending: number;
 }
 
@@ -187,6 +197,10 @@ export interface ItemFormData {
   suggested_price: string;
   list_price: string;
   accept_offers_above: string;
+  platform_fee: string;
+  shipping_cost: string;
+  packaging_cost: string;
+  other_costs: string;
   storage_container: string;
   storage_shelf: string;
   storage_box: string;
@@ -198,6 +212,7 @@ export interface ItemFormData {
   measurements: string;
   status: ItemStatus;
   sale_price: string;
+  payout_received_at: string;
 }
 
 export const STATUS_LABELS: Record<ItemStatus, string> = {
@@ -239,6 +254,10 @@ export const EMPTY_ITEM_FORM: ItemFormData = {
   suggested_price: '',
   list_price: '',
   accept_offers_above: '',
+  platform_fee: '',
+  shipping_cost: '',
+  packaging_cost: '',
+  other_costs: '',
   storage_container: '',
   storage_shelf: '',
   storage_box: '',
@@ -250,4 +269,5 @@ export const EMPTY_ITEM_FORM: ItemFormData = {
   measurements: '',
   status: 'new',
   sale_price: '',
+  payout_received_at: '',
 };

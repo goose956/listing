@@ -55,6 +55,7 @@ import {
   formatDateTime,
   storageLabel,
 } from '../lib/format';
+import { getItemFinanceSummary } from '../lib/finance';
 import {
   Alert,
   Badge,
@@ -490,10 +491,15 @@ export function ItemDetailPage() {
     );
   }
 
-  const profit =
-    item.sale_price != null && item.purchase_price != null
-      ? Number(item.sale_price) - Number(item.purchase_price)
-      : null;
+  const finance = getItemFinanceSummary(item);
+  const financePreview = getItemFinanceSummary({
+    purchase_price: form.purchase_price ? Number(form.purchase_price) : item.purchase_price,
+    sale_price: salePrice ? Number(salePrice) : item.sale_price,
+    platform_fee: form.platform_fee ? Number(form.platform_fee) : item.platform_fee,
+    shipping_cost: form.shipping_cost ? Number(form.shipping_cost) : item.shipping_cost,
+    packaging_cost: form.packaging_cost ? Number(form.packaging_cost) : item.packaging_cost,
+    other_costs: form.other_costs ? Number(form.other_costs) : item.other_costs,
+  });
 
   return (
     <div>
@@ -863,16 +869,70 @@ export function ItemDetailPage() {
           >
             Record sale
           </Button>
-          {profit != null && (
-            <p className="mt-2 text-sm font-medium text-emerald-700">
-              Profit: {formatMoney(profit)}
-            </p>
+          {financePreview.grossProfit != null && (
+            <div className="mt-3 space-y-1 text-sm">
+              <p className="font-medium text-slate-700">Gross profit: {formatMoney(financePreview.grossProfit)}</p>
+              <p className="font-medium text-emerald-700">Net profit: {formatMoney(financePreview.netProfit)}</p>
+            </div>
           )}
           {item.sold_date && (
             <p className="mt-1 text-xs text-slate-400">
               Sold {formatDateTime(item.sold_date)} · {formatMoney(item.sale_price)}
             </p>
           )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-3 text-sm font-semibold text-slate-800">Finance</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Platform fees (£)"
+              inputMode="decimal"
+              value={form.platform_fee}
+              onChange={(e) => update('platform_fee', e.target.value)}
+            />
+            <Input
+              label="Shipping cost (£)"
+              inputMode="decimal"
+              value={form.shipping_cost}
+              onChange={(e) => update('shipping_cost', e.target.value)}
+            />
+            <Input
+              label="Packaging cost (£)"
+              inputMode="decimal"
+              value={form.packaging_cost}
+              onChange={(e) => update('packaging_cost', e.target.value)}
+            />
+            <Input
+              label="Other costs (£)"
+              inputMode="decimal"
+              value={form.other_costs}
+              onChange={(e) => update('other_costs', e.target.value)}
+            />
+            <Input
+              label="Payout received"
+              type="date"
+              value={form.payout_received_at}
+              onChange={(e) => update('payout_received_at', e.target.value)}
+            />
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-slate-50 px-3 py-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Gross</p>
+              <p className="mt-1 text-base font-semibold text-slate-900">{formatMoney(finance.grossProfit)}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3 py-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Extra costs</p>
+              <p className="mt-1 text-base font-semibold text-slate-900">{formatMoney(finance.extraCosts)}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 px-3 py-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">Net</p>
+              <p className="mt-1 text-base font-semibold text-emerald-800">{formatMoney(finance.netProfit)}</p>
+            </div>
+          </div>
+          {item.payout_received_at ? (
+            <p className="mt-3 text-xs text-slate-400">Payout received {formatDate(item.payout_received_at)}</p>
+          ) : null}
         </Card>
       </div>
 

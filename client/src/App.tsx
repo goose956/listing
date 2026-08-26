@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { AddItemPage } from './pages/AddItemPage';
+import { FinancePage } from './pages/FinancePage';
 import { ItemDetailPage } from './pages/ItemDetailPage';
 import { QueuePage } from './pages/QueuePage';
 import { StoragePage } from './pages/StoragePage';
@@ -38,6 +39,7 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="add" element={<AddItemPage />} />
+        <Route path="finance" element={<FinancePage />} />
         <Route path="price-check" element={<PriceCheckPage />} />
         <Route path="items/:id" element={<ItemDetailPage />} />
         <Route path="queue" element={<QueuePage />} />
