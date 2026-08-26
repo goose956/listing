@@ -183,18 +183,50 @@ export function QueuePage() {
       return;
     }
 
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=900');
-    if (!printWindow) {
-      setError('Allow pop-ups to open the print preview');
+    setError(null);
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.setAttribute('aria-hidden', 'true');
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        iframe.remove();
+      }, 500);
+    };
+
+    iframe.onload = () => {
+      const printFrame = iframe.contentWindow;
+      if (!printFrame) {
+        cleanup();
+        setError('Could not open print preview');
+        return;
+      }
+
+      printFrame.onafterprint = cleanup;
+      printFrame.focus();
+      window.setTimeout(() => {
+        printFrame.print();
+      }, 250);
+    };
+
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      cleanup();
+      setError('Could not prepare print preview');
       return;
     }
 
-    printWindow.document.write(buildPrintDocument(printableEntries));
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.onload = () => {
-      printWindow.print();
-    };
+    doc.open();
+    doc.write(buildPrintDocument(printableEntries));
+    doc.close();
   }
 
   if (loading) return <LoadingScreen label="Loading queue…" />;
