@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { BrandMark } from '../components/BrandMark';
-import { useAuth } from '../context/AuthContext';
+import { takeAuthNotice, useAuth } from '../context/AuthContext';
 import { Alert, Button, Card, Input } from '../components/ui';
 
 export function LoginPage() {
@@ -14,6 +14,11 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const notice = takeAuthNotice();
+    if (notice) setInfo(notice);
+  }, []);
 
   if (!loading && user) return <Navigate to="/" replace />;
 

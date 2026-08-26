@@ -33,6 +33,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AUTH_NOTICE_KEY = 'starsella-auth-notice';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -80,11 +81,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
+
+      const nextSession = data.session;
+      if (!nextSession) {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      const { data: userData, error } = await supabase.auth.getUser(nextSession.access_token);
+      if (!mounted) return;
+
+      if (error || !userData.user) {
+        if (isRecoverableJwtError(error?.message)) {
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.setItem(AUTH_NOTICE_KEY, buildAuthNotice(error?.message ?? ''));
+          }
+          await supabase.auth.signOut().catch(() => {});
+        }
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      setSession(nextSession);
+      setUser(userData.user);
       setLoading(false);
+    })().catch(async () => {
+      if (!mounted) return;
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      await supabase.auth.signOut().catch(() => {});
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
@@ -135,6 +168,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function isRecoverableJwtError(message?: string): boolean {
+  const normalized = (message ?? '').toLowerCase();
+  return normalized.includes('jwt issued at future')
+    || normalized.includes('token is expired')
+    || normalized.includes('invalid jwt')
+    || normalized.includes('invalid claim');
+}
+
+function buildAuthNotice(message: string): string {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('jwt issued at future')) {
+    return 'Your device clock appears out of sync. Turn on automatic date and time, then sign in again.';
+  }
+  return 'Your saved session expired or became invalid. Sign in again to continue.';
+}
+
+export function takeAuthNotice(): string | null {
+  if (typeof window === 'undefined') return null;
+  const message = window.sessionStorage.getItem(AUTH_NOTICE_KEY);
+  if (message) {
+    window.sessionStorage.removeItem(AUTH_NOTICE_KEY);
+  }
+  return message;
 }
 
 export function useAuth() {
