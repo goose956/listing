@@ -204,7 +204,7 @@ export function PriceCheckPage() {
             </div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900">Retail and resale estimate</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Use barcode cues, visible branding, and item photos together. This first version gives a structured estimate for likely retail price, rough sold range, and a sensible max buy price.
+              Use barcode cues, visible branding, and item photos together. Get a structured estimate for likely retail price, rough sold range, and a sensible max buy price.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
