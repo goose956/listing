@@ -104,7 +104,16 @@ export function listingGenerationPrompt(item: {
     ? conditionLabels[item.condition] || item.condition
     : 'unknown';
 
+  const sellerGuidance = item.userNotes?.trim() || null;
+
   return `You are writing a Vinted listing for a UK second-hand seller. Natural, honest, search-friendly.
+
+Priority order for facts:
+1. Seller corrections and clarifications explicitly provided by the user.
+2. Structured item details supplied by the app.
+3. Visual inference from the images only when the above do not settle the point.
+
+If seller guidance corrects an uncertain attribute from the scan, prefer the seller guidance. Example: if the scan suggests brown but the seller says it is silver, use silver in the title and description. Do not mention the conflict. Do not invent new facts beyond the seller guidance and supplied item details.
 
 Item details:
 - Brand: ${item.brand || 'Unknown'}
@@ -117,7 +126,7 @@ Item details:
 - Purchase price: ${item.purchase_price != null ? `£${item.purchase_price}` : 'not set'}
 - Measurements: ${item.measurements || 'none'}
 - Notes: ${item.notes || 'none'}
-${item.userNotes ? `- Extra seller guidance: ${item.userNotes}` : ''}
+${sellerGuidance ? `- Seller correction or guidance: ${sellerGuidance}` : ''}
 
 Return ONLY valid JSON:
 {
@@ -134,6 +143,7 @@ Rules:
 - Description: honest second-hand seller, not marketing copy
 - Do not claim item is new unless condition says so
 - list_price in whole GBP pounds
-- Use extra seller guidance when it helps clarify style, flaws, fit, era, or key search terms, but do not invent facts beyond the images and supplied details
+- Treat seller correction or guidance as higher priority than uncertain scanned attributes, especially for colour, material, fit, era, and visible flaws
+- Use seller guidance when it helps clarify style, flaws, fit, era, or key search terms, but do not invent facts beyond the images and supplied details
 - Include size and brand in title when known`;
 }
