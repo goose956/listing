@@ -40,6 +40,114 @@ function parseBackgroundColor(value: unknown): BackgroundColor | null {
   return null;
 }
 
+function parseCorrectionNote(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, 240) : null;
+}
+
+type ColourCorrection = {
+  redGain: number;
+  greenGain: number;
+  blueGain: number;
+  saturation: number;
+  brightness: number;
+};
+
+function clampChannel(value: number) {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function combineCorrections(base: ColourCorrection, next: Partial<ColourCorrection>): ColourCorrection {
+  return {
+    redGain: base.redGain * (next.redGain ?? 1),
+    greenGain: base.greenGain * (next.greenGain ?? 1),
+    blueGain: base.blueGain * (next.blueGain ?? 1),
+    saturation: base.saturation * (next.saturation ?? 1),
+    brightness: base.brightness * (next.brightness ?? 1),
+  };
+}
+
+function buildColourCorrection(note: string | null): ColourCorrection | null {
+  if (!note) return null;
+
+  const normalized = note.toLowerCase();
+  let correction: ColourCorrection = {
+    redGain: 1,
+    greenGain: 1,
+    blueGain: 1,
+    saturation: 1,
+    brightness: 1,
+  };
+  let changed = false;
+
+  const apply = (next: Partial<ColourCorrection>) => {
+    correction = combineCorrections(correction, next);
+    changed = true;
+  };
+
+  if (/bronze|gold|golden|orange cast|too orange/.test(normalized)) {
+    apply({ redGain: 0.9, greenGain: 0.97, blueGain: 1.14, saturation: 0.95 });
+  }
+  if (/silver|grey|gray/.test(normalized) && /should|look|read|be/.test(normalized)) {
+    apply({ redGain: 0.94, greenGain: 0.98, blueGain: 1.08, saturation: 0.9 });
+  }
+  if (/too warm|warm cast|yellow cast|too yellow/.test(normalized)) {
+    apply({ redGain: 0.94, greenGain: 0.99, blueGain: 1.1, saturation: 0.96 });
+  }
+  if (/too cool|cool cast|too blue|blue cast/.test(normalized)) {
+    apply({ redGain: 1.08, greenGain: 1.01, blueGain: 0.92, saturation: 0.98 });
+  }
+  if (/too green|green cast/.test(normalized)) {
+    apply({ redGain: 1.04, greenGain: 0.92, blueGain: 1.04 });
+  }
+  if (/too pink|too magenta|pink cast|magenta cast/.test(normalized)) {
+    apply({ redGain: 0.95, greenGain: 1.05, blueGain: 0.97 });
+  }
+  if (/too dark|underexposed|dark image/.test(normalized)) {
+    apply({ brightness: 1.06 });
+  }
+  if (/too bright|overexposed|washed out/.test(normalized)) {
+    apply({ brightness: 0.97, saturation: 1.03 });
+  }
+
+  return changed ? correction : null;
+}
+
+function applyColourCorrection(
+  data: Buffer<ArrayBufferLike>,
+  width: number,
+  height: number,
+  channels: number,
+  correction: ColourCorrection
+) {
+  const output = Buffer.from(data);
+
+  for (let pixelIndex = 0; pixelIndex < width * height; pixelIndex += 1) {
+    const index = pixelIndex * channels;
+    const alpha = output[index + 3] ?? 255;
+    if (alpha === 0) continue;
+
+    const correctedRed = clampChannel(output[index] * correction.redGain * correction.brightness);
+    const correctedGreen = clampChannel(output[index + 1] * correction.greenGain * correction.brightness);
+    const correctedBlue = clampChannel(output[index + 2] * correction.blueGain * correction.brightness);
+
+    if (correction.saturation === 1) {
+      output[index] = correctedRed;
+      output[index + 1] = correctedGreen;
+      output[index + 2] = correctedBlue;
+      continue;
+    }
+
+    const luminance = correctedRed * 0.2126 + correctedGreen * 0.7152 + correctedBlue * 0.0722;
+    output[index] = clampChannel(luminance + (correctedRed - luminance) * correction.saturation);
+    output[index + 1] = clampChannel(luminance + (correctedGreen - luminance) * correction.saturation);
+    output[index + 2] = clampChannel(luminance + (correctedBlue - luminance) * correction.saturation);
+  }
+
+  return output;
+}
+
 function pseudoNoise(x: number, y: number) {
   const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
   return seed - Math.floor(seed);
@@ -250,6 +358,7 @@ imagesRouter.post('/enhance', upload.single('image'), async (req, res) => {
   try {
     let inputBuffer: Buffer;
     const backgroundColor = parseBackgroundColor(req.body?.backgroundColor);
+    const correctionNote = parseCorrectionNote(req.body?.correctionNote);
 
     if (req.file) {
       inputBuffer = req.file.buffer;
@@ -264,6 +373,7 @@ imagesRouter.post('/enhance', upload.single('image'), async (req, res) => {
     // - Normalise exposure slightly
     // - Mild contrast for product visibility
     // - Mild sharpening
+    // - Optional restrained colour-cast correction from user guidance
     // - Auto-orient from EXIF
     // - Convert to JPEG for consistency
     // NO: colour replacement, inpainting, background removal that hides damage
@@ -280,15 +390,26 @@ imagesRouter.post('/enhance', upload.single('image'), async (req, res) => {
       .raw()
       .toBuffer({ resolveWithObject: true });
 
+    const colourCorrection = buildColourCorrection(correctionNote);
+    const colourAdjustedPixels = colourCorrection
+      ? applyColourCorrection(
+          enhancedSource.data,
+          enhancedSource.info.width,
+          enhancedSource.info.height,
+          enhancedSource.info.channels,
+          colourCorrection
+        )
+      : enhancedSource.data;
+
     const enhancedPixels = backgroundColor
       ? applyBackgroundColor(
-          enhancedSource.data,
+          colourAdjustedPixels,
           enhancedSource.info.width,
           enhancedSource.info.height,
           enhancedSource.info.channels,
           backgroundColor
         )
-      : enhancedSource.data;
+      : colourAdjustedPixels;
 
     const enhanced = await sharp(enhancedPixels, {
       raw: {

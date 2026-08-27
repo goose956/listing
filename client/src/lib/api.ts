@@ -50,12 +50,16 @@ export type EnhanceBackgroundColor = 'white' | 'light_gray' | 'light_gray_textur
 
 export async function enhanceImage(
   file: File | Blob,
-  backgroundColor?: EnhanceBackgroundColor
+  backgroundColor?: EnhanceBackgroundColor,
+  correctionNote?: string
 ): Promise<Blob> {
   const form = new FormData();
   form.append('image', file);
   if (backgroundColor) {
     form.append('backgroundColor', backgroundColor);
+  }
+  if (correctionNote?.trim()) {
+    form.append('correctionNote', correctionNote.trim());
   }
   const res = await fetch(`${API_BASE}/api/images/enhance`, {
     method: 'POST',

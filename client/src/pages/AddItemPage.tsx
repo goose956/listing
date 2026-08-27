@@ -60,6 +60,7 @@ export function AddItemPage() {
   const [step, setStep] = useState<'photos' | 'details'>('photos');
   const [draftId, setDraftId] = useState<string | null>(null);
   const [backgroundChoice, setBackgroundChoice] = useState<'original' | EnhanceBackgroundColor>('original');
+  const [correctionNote, setCorrectionNote] = useState('');
 
   function update<K extends keyof ItemFormData>(key: K, value: ItemFormData[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -116,7 +117,8 @@ export function AddItemPage() {
       for (const photo of photos) {
         const blob = await enhanceImage(
           photo.file,
-          backgroundChoice === 'original' ? undefined : backgroundChoice
+          backgroundChoice === 'original' ? undefined : backgroundChoice,
+          correctionNote
         );
         const file = new File(
           [blob],
@@ -393,6 +395,16 @@ export function AddItemPage() {
                 </option>
               ))}
             </Select>
+          </div>
+          <div className="min-w-full sm:flex-1">
+            <Textarea
+              label="Colour correction note"
+              rows={2}
+              value={correctionNote}
+              onChange={(e) => setCorrectionNote(e.target.value)}
+              placeholder="Optional. Example: item looks too bronze, should read silver; image is too warm/yellow"
+              hint="Use this when the photo has a colour cast. Keep it factual so the correction stays true to the item."
+            />
           </div>
           <Button
             type="button"
