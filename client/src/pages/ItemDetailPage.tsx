@@ -84,6 +84,7 @@ export function ItemDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [scheduleAt, setScheduleAt] = useState('');
@@ -470,6 +471,45 @@ export function ItemDetailPage() {
     }
   }
 
+  async function handleDownloadZip() {
+    if (!item?.item_images?.length || downloadingZip) return;
+
+    setDownloadingZip(true);
+    setError(null);
+    flash(`Preparing ZIP for ${item.item_images.length} photos…`);
+
+    try {
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+
+      for (let i = 0; i < item.item_images.length; i += 1) {
+        const img = item.item_images[i];
+        const response = await fetch(img.public_url);
+        if (!response.ok) {
+          throw new Error(`Failed to download photo ${i + 1}`);
+        }
+
+        const blob = await response.blob();
+        zip.file(`${item.item_number}-${i + 1}.jpg`, blob);
+      }
+
+      const archive = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(archive);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${item.item_number}-photos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      flash(`Downloaded ${item.item_images.length} photos as ZIP`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download ZIP');
+    } finally {
+      setDownloadingZip(false);
+    }
+  }
+
   async function handleSold() {
     if (!id || !salePrice) return;
     try {
@@ -549,13 +589,24 @@ export function ItemDetailPage() {
         <div className="mb-1 flex items-center justify-between">
           <span className="text-xs text-slate-400">{item.item_images?.length ?? 0} photo{item.item_images?.length !== 1 ? 's' : ''}</span>
           {(item.item_images?.length ?? 0) > 0 && (
-            <button
-              type="button"
-              onClick={handleDownloadAll}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            >
-              <Download size={12} /> Download all
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => void handleDownloadAll()}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <Download size={12} /> Download all
+              </button>
+              <button
+                type="button"
+                disabled={downloadingZip}
+                onClick={() => void handleDownloadZip()}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+              >
+                {downloadingZip ? <Spinner className="h-3 w-3 border-[1.5px] border-slate-200 border-t-slate-600" /> : <Download size={12} />}
+                Download ZIP
+              </button>
+            </div>
           )}
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
