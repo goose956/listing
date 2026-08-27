@@ -10,6 +10,17 @@ import type {
 import { parseMoneyInput } from './format';
 import { getItemFinanceSummary, sumItemExtraCosts } from './finance';
 
+function isMissingAiGuidanceColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const message = 'message' in error && typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  return message.includes('ai_guidance') && (message.includes('schema cache') || message.includes('column'));
+}
+
+function stripAiGuidance<T extends Record<string, unknown>>(payload: T): Omit<T, 'ai_guidance'> {
+  const { ai_guidance: _ignored, ...rest } = payload;
+  return rest;
+}
+
 function formToDb(form: Partial<ItemFormData>, userId: string) {
   return {
     user_id: userId,
@@ -194,11 +205,19 @@ export async function createItem(
     ai_analysis: extras?.ai_analysis ?? null,
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('items')
     .insert(payload)
     .select('*, item_images(*)')
     .single();
+
+  if (error && isMissingAiGuidanceColumnError(error)) {
+    ({ data, error } = await supabase
+      .from('items')
+      .insert(stripAiGuidance(payload))
+      .select('*, item_images(*)')
+      .single());
+  }
 
   if (error) throw error;
   return normalizeItem(data);
@@ -224,12 +243,26 @@ export async function updateItem(
     payload.listed_date = new Date().toISOString();
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('items')
     .update(payload)
     .eq('id', id)
     .select('*, item_images(*)')
     .single();
+
+  if (error && isMissingAiGuidanceColumnError(error)) {
+    const fallbackPayload = stripAiGuidance(payload);
+    if (Object.keys(fallbackPayload).length === 0) {
+      return (await fetchItem(id)) as Item;
+    }
+
+    ({ data, error } = await supabase
+      .from('items')
+      .update(fallbackPayload)
+      .eq('id', id)
+      .select('*, item_images(*)')
+      .single());
+  }
 
   if (error) throw error;
   return normalizeItem(data);
