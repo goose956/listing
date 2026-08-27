@@ -86,7 +86,6 @@ export function ItemDetailPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [listingNotes, setListingNotes] = useState('');
   const [scheduleAt, setScheduleAt] = useState('');
   const [schedulePlatform, setSchedulePlatform] = useState('vinted');
   const [salePrice, setSalePrice] = useState('');
@@ -259,7 +258,7 @@ export function ItemDetailPage() {
         suggested_price: form.suggested_price ? Number(form.suggested_price) : undefined,
         measurements: form.measurements,
         notes: form.notes,
-        userNotes: listingNotes.trim() || undefined,
+        userNotes: form.ai_guidance.trim() || undefined,
         imageUrls,
       });
 
@@ -591,10 +590,10 @@ export function ItemDetailPage() {
           <Textarea
             label="AI guidance"
             rows={2}
-            value={listingNotes}
-            onChange={(e) => setListingNotes(e.target.value)}
+            value={form.ai_guidance}
+            onChange={(e) => update('ai_guidance', e.target.value)}
             placeholder="Optional. Example: mention small cuff mark, oversized fit, 90s workwear look"
-            hint="Extra notes to steer the AI title and description without changing the saved item notes."
+            hint="Saved with the item and used to steer the AI title and description."
           />
           <div className="relative">
             <Input

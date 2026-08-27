@@ -41,6 +41,7 @@ function formToDb(form: Partial<ItemFormData>, userId: string) {
           .map((t) => t.trim())
           .filter(Boolean)
       : null,
+    ai_guidance: form.ai_guidance || null,
     notes: form.notes || null,
     measurements: form.measurements || null,
     status: (form.status as ItemStatus) || 'new',
@@ -73,6 +74,7 @@ export function itemToForm(item: Item): ItemFormData {
     title: item.title || '',
     description: item.description || '',
     tags: item.tags?.join(', ') || '',
+    ai_guidance: item.ai_guidance || '',
     notes: item.notes || '',
     measurements: item.measurements || '',
     status: item.status,

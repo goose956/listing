@@ -46,6 +46,7 @@ export function InventoryPage() {
   const [ebayConnected, setEbayConnected] = useState(false);
   const [listingItemId, setListingItemId] = useState<string | null>(null);
   const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
+  const [savingGuidanceItemId, setSavingGuidanceItemId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'filtered' | 'all' | null>(null);
   const [listingNotes, setListingNotes] = useState<Record<string, string>>({});
 
@@ -99,6 +100,16 @@ export function InventoryPage() {
       cancelled = true;
     };
   }, [debounced, status]);
+
+  useEffect(() => {
+    setListingNotes((current) => {
+      const next: Record<string, string> = {};
+      for (const item of items) {
+        next[item.id] = current[item.id] ?? item.ai_guidance ?? '';
+      }
+      return next;
+    });
+  }, [items]);
 
   const countLabel = useMemo(() => {
     if (status === 'all') return `${items.length} items`;
@@ -177,6 +188,23 @@ export function InventoryPage() {
     }
   }
 
+  async function handleSaveGuidance(item: Item, rawValue?: string) {
+    const value = (rawValue ?? listingNotes[item.id] ?? '').trim();
+    const existing = (item.ai_guidance ?? '').trim();
+    if (value === existing) return;
+
+    setSavingGuidanceItemId(item.id);
+    setError(null);
+    try {
+      const updated = await updateItem(item.id, { ai_guidance: value });
+      setItems((current) => current.map((entry) => (entry.id === item.id ? updated : entry)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save AI guidance');
+    } finally {
+      setSavingGuidanceItemId(null);
+    }
+  }
+
   async function handleGenerateWithAi(item: Item) {
     if (generatingItemId || outOfCredits) return;
 
@@ -185,6 +213,11 @@ export function InventoryPage() {
     try {
       const imageUrls = item.item_images?.map((image) => image.public_url).filter(Boolean) ?? [];
       const userNotes = listingNotes[item.id]?.trim() || undefined;
+      if ((userNotes ?? '') !== (item.ai_guidance ?? '').trim()) {
+        const persisted = await updateItem(item.id, { ai_guidance: userNotes ?? '' });
+        setItems((current) => current.map((entry) => (entry.id === item.id ? persisted : entry)));
+        item = persisted;
+      }
       const { listing } = await generateListing({
         brand: item.brand ?? undefined,
         product_type: item.product_type ?? undefined,
@@ -343,8 +376,11 @@ export function InventoryPage() {
                         const value = event.target.value;
                         setListingNotes((current) => ({ ...current, [item.id]: value }));
                       }}
+                      onBlur={() => {
+                        void handleSaveGuidance(item);
+                      }}
                       placeholder="AI notes, e.g. mention flaw on cuff, 90s style, oversized fit"
-                      hint="Optional notes to steer title and description."
+                      hint={savingGuidanceItemId === item.id ? 'Saving AI guidance…' : 'Saved on the item and used to steer title and description.'}
                     />
                   </div>
                   <div className="flex flex-wrap justify-end gap-2">

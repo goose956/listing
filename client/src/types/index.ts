@@ -52,6 +52,7 @@ export interface Item {
   description: string | null;
   tags: string[] | null;
   ai_analysis: Record<string, unknown> | null;
+  ai_guidance: string | null;
   sold_date: string | null;
   listed_date: string | null;
   marketplace: string | null;
@@ -210,6 +211,7 @@ export interface ItemFormData {
   title: string;
   description: string;
   tags: string;
+  ai_guidance: string;
   notes: string;
   measurements: string;
   status: ItemStatus;
@@ -268,6 +270,7 @@ export const EMPTY_ITEM_FORM: ItemFormData = {
   title: '',
   description: '',
   tags: '',
+  ai_guidance: '',
   notes: '',
   measurements: '',
   status: 'new',
