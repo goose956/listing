@@ -442,20 +442,32 @@ export function ItemDetailPage() {
     }
   }
 
-  function handleDownloadAll() {
+  async function handleDownloadAll() {
     if (!item?.item_images?.length) return;
-    item.item_images.forEach((img, i) => {
-      setTimeout(() => {
+    setError(null);
+    flash(`Downloading ${item.item_images.length} photos…`);
+
+    try {
+      for (let i = 0; i < item.item_images.length; i += 1) {
+        const img = item.item_images[i];
+        const response = await fetch(img.public_url);
+        if (!response.ok) {
+          throw new Error(`Failed to download photo ${i + 1}`);
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = img.public_url;
+        a.href = url;
         a.download = `${item.item_number}-${i + 1}.jpg`;
-        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         a.remove();
-      }, i * 400);
-    });
-    flash(`Downloading ${item.item_images.length} photos…`);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download images');
+    }
   }
 
   async function handleSold() {
