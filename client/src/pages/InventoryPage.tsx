@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Download, Plus, Search, ShoppingBag } from 'lucide-react';
+import { Download, Plus, Search, ShoppingBag, Sparkles } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { generateListing } from '../lib/api';
 import { createEbayListing, EbayListingError, getEbayStatus } from '../lib/ebay';
-import { deleteItem, fetchItem, fetchItems } from '../lib/items';
+import { deleteItem, fetchItem, fetchItems, updateItem } from '../lib/items';
 import type { Item, ItemStatus } from '../types';
 import { STATUS_LABELS } from '../types';
 import {
@@ -13,6 +15,7 @@ import {
   LoadingScreen,
   PageHeader,
   Spinner,
+  Textarea,
   Toast,
   cn,
 } from '../components/ui';
@@ -28,6 +31,8 @@ const FILTERS: Array<{ key: 'all' | ItemStatus; label: string }> = [
 ];
 
 export function InventoryPage() {
+  const { hasUnlimitedAI, creditsLimit, creditsUsed } = useAuth();
+  const outOfCredits = !hasUnlimitedAI && creditsLimit != null && creditsUsed >= creditsLimit;
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +45,9 @@ export function InventoryPage() {
   );
   const [ebayConnected, setEbayConnected] = useState(false);
   const [listingItemId, setListingItemId] = useState<string | null>(null);
+  const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'filtered' | 'all' | null>(null);
+  const [listingNotes, setListingNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -170,6 +177,57 @@ export function InventoryPage() {
     }
   }
 
+  async function handleGenerateWithAi(item: Item) {
+    if (generatingItemId || outOfCredits) return;
+
+    setGeneratingItemId(item.id);
+    setError(null);
+    try {
+      const imageUrls = item.item_images?.map((image) => image.public_url).filter(Boolean) ?? [];
+      const userNotes = listingNotes[item.id]?.trim() || undefined;
+      const { listing } = await generateListing({
+        brand: item.brand ?? undefined,
+        product_type: item.product_type ?? undefined,
+        category: item.category ?? undefined,
+        size: item.size ?? undefined,
+        colour: item.colour ?? undefined,
+        condition: item.condition ?? undefined,
+        purchase_price: item.purchase_price ?? undefined,
+        suggested_price: item.suggested_price ?? undefined,
+        measurements: item.measurements ?? undefined,
+        notes: item.notes ?? undefined,
+        imageUrls,
+        userNotes,
+      });
+
+      const updated = await updateItem(item.id, {
+        title: listing.title ?? item.title ?? '',
+        description: listing.description ?? item.description ?? '',
+        list_price: listing.list_price != null
+          ? String(listing.list_price)
+          : item.list_price != null
+            ? String(item.list_price)
+            : item.suggested_price != null
+              ? String(item.suggested_price)
+              : '',
+        accept_offers_above: listing.accept_offers_above != null
+          ? String(listing.accept_offers_above)
+          : item.accept_offers_above != null
+            ? String(item.accept_offers_above)
+            : '',
+        tags: listing.tags?.join(', ') || item.tags?.join(', ') || '',
+        status: item.status === 'new' ? 'ready_for_listing' : item.status,
+      });
+
+      setItems((current) => current.map((entry) => (entry.id === item.id ? updated : entry)));
+      flash(listing.price_rationale || `Generated listing copy for ${item.item_number}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Listing generation failed');
+    } finally {
+      setGeneratingItemId(null);
+    }
+  }
+
   return (
     <div>
       <Toast message={toast} />
@@ -272,22 +330,57 @@ export function InventoryPage() {
               item={item}
               onDelete={() => handleDelete(item.id, item.item_number)}
               footerAction={
-                ebayConnected && item.status === 'listed' && !item.ebay_listing_id ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={listingItemId != null}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      void handleListOnEbay(item);
-                    }}
-                  >
-                    {listingItemId === item.id ? <Spinner className="border-t-teal-600" /> : <ShoppingBag size={14} />}
-                    {item.posted_marketplaces.includes('ebay') ? 'Relist on eBay' : 'List on eBay'}
-                  </Button>
-                ) : undefined
+                <div className="relative z-10 flex w-full flex-col gap-2 sm:items-end">
+                  <div className="w-full sm:max-w-sm">
+                    <Textarea
+                      rows={2}
+                      value={listingNotes[item.id] ?? ''}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setListingNotes((current) => ({ ...current, [item.id]: value }));
+                      }}
+                      placeholder="AI notes, e.g. mention flaw on cuff, 90s style, oversized fit"
+                      hint="Optional notes to steer title and description."
+                    />
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={generatingItemId != null || outOfCredits}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void handleGenerateWithAi(item);
+                      }}
+                      title={outOfCredits ? 'Upgrade to Pro for unlimited AI' : undefined}
+                    >
+                      {generatingItemId === item.id ? <Spinner className="border-t-teal-600" /> : <Sparkles size={14} />}
+                      {outOfCredits ? 'No credits' : 'Generate with AI'}
+                    </Button>
+                    {ebayConnected && item.status === 'listed' && !item.ebay_listing_id ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={listingItemId != null}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          void handleListOnEbay(item);
+                        }}
+                      >
+                        {listingItemId === item.id ? <Spinner className="border-t-teal-600" /> : <ShoppingBag size={14} />}
+                        {item.posted_marketplaces.includes('ebay') ? 'Relist on eBay' : 'List on eBay'}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               }
             />
           ))}

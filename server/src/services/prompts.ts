@@ -89,6 +89,7 @@ export function listingGenerationPrompt(item: {
   suggested_price?: number;
   measurements?: string;
   notes?: string;
+  userNotes?: string;
 }): string {
   const conditionLabels: Record<string, string> = {
     new_with_tags: 'New with tags',
@@ -116,6 +117,7 @@ Item details:
 - Purchase price: ${item.purchase_price != null ? `£${item.purchase_price}` : 'not set'}
 - Measurements: ${item.measurements || 'none'}
 - Notes: ${item.notes || 'none'}
+${item.userNotes ? `- Extra seller guidance: ${item.userNotes}` : ''}
 
 Return ONLY valid JSON:
 {
@@ -132,5 +134,6 @@ Rules:
 - Description: honest second-hand seller, not marketing copy
 - Do not claim item is new unless condition says so
 - list_price in whole GBP pounds
+- Use extra seller guidance when it helps clarify style, flaws, fit, era, or key search terms, but do not invent facts beyond the images and supplied details
 - Include size and brand in title when known`;
 }

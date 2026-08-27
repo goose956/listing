@@ -46,6 +46,21 @@ export async function generateListing(
   return res.json();
 }
 
+export interface ListingGenerationInput {
+  brand?: string;
+  product_type?: string;
+  category?: string;
+  size?: string;
+  colour?: string;
+  condition?: string;
+  purchase_price?: number;
+  suggested_price?: number;
+  measurements?: string;
+  notes?: string;
+  imageUrls?: string[];
+  userNotes?: string;
+}
+
 export type EnhanceBackgroundColor = 'white' | 'light_gray' | 'light_gray_textured' | 'dark_gray' | 'black';
 
 export async function enhanceImage(

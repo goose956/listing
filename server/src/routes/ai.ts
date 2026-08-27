@@ -253,6 +253,7 @@ aiRouter.post('/listing', async (req, res) => {
       measurements?: string;
       notes?: string;
       imageUrls?: string[];
+      userNotes?: string;
     };
 
     const userId = await resolveUserId(req.headers.authorization);
