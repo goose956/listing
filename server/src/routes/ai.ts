@@ -5,6 +5,7 @@ import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmi
 import { createImageCollage } from '../lib/imageCollage.js';
 import { isStripeConfigured, FREE_AI_CREDITS } from '../lib/stripe.js';
 import { logError } from '../lib/errorLog.js';
+import { resolveUser, isAdminEmail } from '../lib/adminAuth.js';
 
 export const aiRouter = Router();
 
@@ -54,6 +55,9 @@ function getOpenAI(apiKey: string) {
 async function checkAICredits(userId: string | null): Promise<{ status: number; error: string; creditsUsed: number; creditsLimit: number } | null> {
   if (!userId || !isStripeConfigured() || !isSupabaseAdminConfigured()) return null;
 
+  const authUser = await getSupabaseAdmin().auth.admin.getUserById(userId).catch(() => null);
+  if (authUser?.data.user?.email && isAdminEmail(authUser.data.user.email)) return null;
+
   const { data: profile } = await getSupabaseAdmin()
     .from('profiles')
     .select('subscription_status, ai_credits_used')
@@ -73,6 +77,8 @@ async function checkAICredits(userId: string | null): Promise<{ status: number; 
 
 async function incrementAICredits(userId: string | null) {
   if (!userId || !isSupabaseAdminConfigured()) return;
+  const authUser = await getSupabaseAdmin().auth.admin.getUserById(userId).catch(() => null);
+  if (authUser?.data.user?.email && isAdminEmail(authUser.data.user.email)) return;
   // Only increment for free users — pro users have null limit
   const { data: profile } = await getSupabaseAdmin()
     .from('profiles')

@@ -21,6 +21,7 @@ async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T>
 export interface SubscriptionStatus {
   status: 'free' | 'active' | 'trialing' | 'cancelled' | 'past_due';
   isPro: boolean;
+  hasUnlimitedAI: boolean;
   creditsUsed: number;
   creditsLimit: number | null;
   itemCount: number;

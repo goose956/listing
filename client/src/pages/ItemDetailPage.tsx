@@ -74,8 +74,8 @@ import { MarketplaceBadges } from '../components/MarketplaceBadges';
 
 export function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, isPro, creditsUsed, creditsLimit } = useAuth();
-  const outOfCredits = !isPro && creditsLimit != null && creditsUsed >= creditsLimit;
+  const { user, hasUnlimitedAI, creditsUsed, creditsLimit } = useAuth();
+  const outOfCredits = !hasUnlimitedAI && creditsLimit != null && creditsUsed >= creditsLimit;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 

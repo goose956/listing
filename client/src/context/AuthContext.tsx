@@ -18,6 +18,7 @@ interface AuthContextValue {
   configured: boolean;
   isAdmin: boolean;
   isPro: boolean;
+  hasUnlimitedAI: boolean;
   creditsUsed: number;
   creditsLimit: number | null;
   itemCount: number;
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const [hasUnlimitedAI, setHasUnlimitedAI] = useState(false);
   const [creditsUsed, setCreditsUsed] = useState(0);
   const [creditsLimit, setCreditsLimit] = useState<number | null>(5);
   const [itemCount, setItemCount] = useState(0);
@@ -50,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchSubscriptionStatus()
       .then((s) => {
         setIsPro(s.isPro);
+        setHasUnlimitedAI(s.hasUnlimitedAI);
         setCreditsUsed(s.creditsUsed);
         setCreditsLimit(s.creditsLimit);
         setItemCount(s.itemCount);
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsAdmin(false);
       setIsPro(false);
+      setHasUnlimitedAI(false);
       setCreditsUsed(0);
       setCreditsLimit(5);
       setItemCount(0);
@@ -140,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configured: isSupabaseConfigured,
       isAdmin,
       isPro,
+      hasUnlimitedAI,
       creditsUsed,
       creditsLimit,
       itemCount,
@@ -164,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
       },
     }),
-    [user, session, loading]
+    [user, session, loading, isAdmin, isPro, hasUnlimitedAI, creditsUsed, creditsLimit, itemCount, itemLimit]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

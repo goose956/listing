@@ -95,10 +95,12 @@ export function BillingPage() {
             </div>
             <div>
               <p className="font-semibold text-slate-900">
-                {status?.isPro ? 'Pro' : 'Free'} plan
+                {status?.isPro ? 'Pro' : status?.hasUnlimitedAI ? 'Admin' : 'Free'} plan
               </p>
               <p className="text-sm text-slate-500">
-                {status?.isPro
+                {status?.hasUnlimitedAI
+                  ? 'Unlimited AI access'
+                  : status?.isPro
                   ? status.periodEnd
                     ? `Renews ${formatDate(status.periodEnd)}`
                     : 'Active subscription'
@@ -130,7 +132,7 @@ export function BillingPage() {
       </Card>
 
       {/* AI credits (free users only) */}
-      {!status?.isPro && (
+      {!status?.hasUnlimitedAI && (
         <Card>
           <div className="mb-3 flex items-center gap-2">
             <Sparkles size={16} className="text-teal-600" />

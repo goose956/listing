@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getStripe, isStripeConfigured, FREE_AI_CREDITS, FREE_ITEM_LIMIT } from '../lib/stripe.js';
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin.js';
+import { isAdminEmail, resolveUser } from '../lib/adminAuth.js';
 
 export const stripeRouter = Router();
 
@@ -34,12 +35,14 @@ async function getProfile(userId: string) {
 
 // GET /api/stripe/status
 stripeRouter.get('/status', async (req, res) => {
-  const userId = await resolveUserId(req.headers.authorization);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const user = await resolveUser(req.headers.authorization);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  const userId = user.id;
 
   const profile = await getProfile(userId);
   const status = profile?.subscription_status ?? 'free';
   const isPro = status === 'active' || status === 'trialing';
+  const hasUnlimitedAI = isPro || isAdminEmail(user.email);
 
   const { count: itemCount } = await getSupabaseAdmin()
     .from('items')
@@ -49,8 +52,9 @@ stripeRouter.get('/status', async (req, res) => {
   return res.json({
     status,
     isPro,
+    hasUnlimitedAI,
     creditsUsed: profile?.ai_credits_used ?? 0,
-    creditsLimit: isPro ? null : FREE_AI_CREDITS,
+    creditsLimit: hasUnlimitedAI ? null : FREE_AI_CREDITS,
     itemCount: itemCount ?? 0,
     itemLimit: isPro ? null : FREE_ITEM_LIMIT,
     periodEnd: profile?.subscription_period_end ?? null,

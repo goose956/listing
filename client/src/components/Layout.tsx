@@ -33,7 +33,7 @@ const nav = [
 ];
 
 export function Layout() {
-  const { user, signOut, isAdmin, isPro, creditsLimit, creditsUsed, itemCount, itemLimit } = useAuth();
+  const { user, signOut, isAdmin, isPro, hasUnlimitedAI, creditsLimit, creditsUsed, itemCount, itemLimit } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [dueCount, setDueCount] = useState(0);
@@ -242,7 +242,7 @@ export function Layout() {
                 {!isPro && (itemLimit != null && itemCount >= itemLimit) && (
                   <span className="text-xs font-semibold text-rose-500">Full</span>
                 )}
-                {!isPro && !(itemLimit != null && itemCount >= itemLimit) && creditsLimit != null && creditsUsed >= creditsLimit && (
+                {!hasUnlimitedAI && !(itemLimit != null && itemCount >= itemLimit) && creditsLimit != null && creditsUsed >= creditsLimit && (
                   <span className="text-xs font-semibold text-rose-500">No AI</span>
                 )}
               </NavLink>
